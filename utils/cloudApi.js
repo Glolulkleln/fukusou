@@ -161,20 +161,58 @@ const wxLogin = async (userInfo) => {
   });
 };
 
+// HTTP 图片临时缓存（微信小程序不再支持 HTTP 图片，需下载到本地）
+const imageCache = new Map();
+
+const downloadHttpImage = (httpUrl) => {
+  if (imageCache.has(httpUrl)) return Promise.resolve(imageCache.get(httpUrl));
+  return new Promise((resolve) => {
+    wx.downloadFile({
+      url: httpUrl,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          imageCache.set(httpUrl, res.tempFilePath);
+          resolve(res.tempFilePath);
+        } else {
+          resolve(httpUrl); // 降级：返回原 URL（可能是 HTTPS 或其他）
+        }
+      },
+      fail: () => resolve(httpUrl) // 下载失败降级
+    });
+  });
+};
+
 const getAccessibleImageUrl = async (url) => {
   if (!url) return url;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return BASE_URL + (url.startsWith('/') ? url : '/' + url);
+  if (url.startsWith('http://')) return downloadHttpImage(url);
+  if (url.startsWith('https://')) return url;
+  const fullUrl = BASE_URL + (url.startsWith('/') ? url : '/' + url);
+  if (fullUrl.startsWith('http://')) return downloadHttpImage(fullUrl);
+  return fullUrl;
 };
 
 const getAccessibleImageUrls = async (urls) => {
   if (!Array.isArray(urls) || urls.length === 0) return {};
+  const fullUrls = urls.map(url => {
+    if (!url) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return BASE_URL + (url.startsWith('/') ? url : '/' + url);
+  });
+
+  const httpUrls = fullUrls.filter(u => u && u.startsWith('http://'));
+  if (httpUrls.length > 0) {
+    await Promise.all(httpUrls.map(u => downloadHttpImage(u)));
+  }
+
   const map = {};
-  urls.forEach(url => {
+  urls.forEach((url, i) => {
     if (!url) return;
-    map[url] = (url.startsWith('http://') || url.startsWith('https://'))
-      ? url
-      : BASE_URL + (url.startsWith('/') ? url : '/' + url);
+    const fullUrl = fullUrls[i];
+    if (fullUrl && fullUrl.startsWith('http://')) {
+      map[url] = imageCache.get(fullUrl) || fullUrl;
+    } else {
+      map[url] = fullUrl;
+    }
   });
   return map;
 };
@@ -330,13 +368,32 @@ const resolveImageUrl = async (url) => {
 
 const resolveImagesInList = async (list, field = 'main_image') => {
   if (!Array.isArray(list) || list.length === 0) return list;
+
+  // 收集所有需要下载的 HTTP URL
+  const httpUrls = [];
+  list.forEach(item => {
+    if (!item) return;
+    const original = item[field];
+    if (!original) return;
+    const fullUrl = (original.startsWith('http://') || original.startsWith('https://'))
+      ? original
+      : BASE_URL + (original.startsWith('/') ? original : '/' + original);
+    if (fullUrl.startsWith('http://')) httpUrls.push(fullUrl);
+  });
+
+  // 批量预下载 HTTP 图片
+  if (httpUrls.length > 0) {
+    await Promise.all(httpUrls.map(u => downloadHttpImage(u)));
+  }
+
   return list.map(item => {
     if (!item) return item;
     const original = item[field];
     if (!original) return item;
-    const resolved = (original.startsWith('http://') || original.startsWith('https://'))
+    const fullUrl = (original.startsWith('http://') || original.startsWith('https://'))
       ? original
       : BASE_URL + (original.startsWith('/') ? original : '/' + original);
+    const resolved = fullUrl.startsWith('http://') ? (imageCache.get(fullUrl) || fullUrl) : fullUrl;
     return { ...item, [field]: resolved };
   });
 };
