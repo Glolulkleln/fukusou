@@ -41,53 +41,29 @@ Page({
   },
 
   getBanners() {
-    return new Promise((resolve, reject) => {
-      callCloudApi('getBanners')
-        .then(res => {
-          this.setData({
-            bannerList: mapBannerList(res || [])
-          });
-          resolve();
-        })
-        .catch(err => {
-          console.error(err);
-          reject(err);
-        });
-    });
+    return callCloudApi('getBanners')
+      .then(res => {
+        this.setData({ bannerList: mapBannerList(res || []) });
+      })
+      .catch(err => console.error('getBanners error:', err));
   },
 
   getCategories() {
-    return new Promise((resolve, reject) => {
-      callCloudApi('getCategories')
-        .then(res => {
-          this.setData({
-            categoryList: mapCategoryList(res || [])
-          });
-          resolve();
-        })
-        .catch(err => {
-          console.error(err);
-          reject(err);
-        });
-    });
+    return callCloudApi('getCategories')
+      .then(res => {
+        this.setData({ categoryList: mapCategoryList(res || []) });
+      })
+      .catch(err => console.error('getCategories error:', err));
   },
 
   getRecommendClothing() {
-    return new Promise((resolve, reject) => {
-      callCloudApi('getClothingList')
-        .then(async res => {
-          const list = mapClothingList(res && res.list ? res.list : res);
-          const imageList = await resolveImagesInList(list, 'main_image');
-          this.setData({
-            clothingList: imageList || []
-          });
-          resolve();
-        })
-        .catch(err => {
-          console.error(err);
-          reject(err);
-        });
-    });
+    return callCloudApi('getClothingList')
+      .then(async res => {
+        const list = mapClothingList(res && res.list ? res.list : res);
+        const imageList = await resolveImagesInList(list, 'main_image');
+        this.setData({ clothingList: imageList || [] });
+      })
+      .catch(err => console.error('getRecommendClothing error:', err));
   },
 
   onPullDownRefresh() {

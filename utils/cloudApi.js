@@ -222,15 +222,21 @@ const getAccessibleImageUrls = async (urls) => {
   return map;
 };
 
-const uploadCloudFile = (filePath) => {
+const uploadCloudFile = (filePath, token) => {
+  const authToken = token || wx.getStorageSync('token') || '';
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: BASE_URL + '/api/upload',
       filePath: filePath,
       name: 'file',
+      header: authToken ? { 'Authorization': 'Bearer ' + authToken } : {},
       success: (res) => {
         try {
           const data = JSON.parse(res.data);
+          if (res.statusCode === 401) {
+            reject(new Error('登录已过期，请重新登录'));
+            return;
+          }
           if (data.code === 200 || data.success) {
             resolve(data.data);
           } else {
