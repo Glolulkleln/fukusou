@@ -9,6 +9,8 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 
@@ -117,9 +119,26 @@ async function initPool() {
   try {
     pool = await sql.connect(config);
     console.log('Database connection pool initialized successfully');
+    await ensureRemindTable();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
+  }
+}
+
+// 自动确保 order_remind（提醒发货记录）表存在，兼容已有数据库
+async function ensureRemindTable() {
+  try {
+    await dbQuery(`IF OBJECT_ID('[order_remind]', 'U') IS NULL
+      CREATE TABLE [order_remind] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [order_no] NVARCHAR(50) NOT NULL,
+        [user_id] INT NOT NULL,
+        [created_at] DATETIME DEFAULT GETDATE()
+      );`);
+    console.log('order_remind table ensured');
+  } catch (error) {
+    console.error('ensureRemindTable error:', error.message);
   }
 }
 
@@ -129,6 +148,56 @@ function success(res, data = null, message = 'success') {
 
 function fail(res, message = '服务器内部错误', code = 500) {
   res.status(code).json({ code, message });
+}
+
+// ============ 密码安全：使用 scrypt 加盐哈希 ============
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored) return false;
+  // 兼容尚未迁移的明文密码（首次登录成功后自动升级）
+  if (!stored.startsWith('scrypt$')) {
+    return stored === password;
+  }
+  const parts = stored.split('$');
+  if (parts.length !== 3) return false;
+  const verifyHash = crypto.scryptSync(password, parts[1], 64).toString('hex');
+  const a = Buffer.from(parts[2], 'hex');
+  const b = Buffer.from(verifyHash, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// 微信 code2Session：用 login code 换取真实 openid（需配置 WX_APPID / WX_SECRET）
+function wxCode2Session(code) {
+  return new Promise((resolve) => {
+    if (!process.env.WX_APPID || !process.env.WX_SECRET) {
+      return resolve(null);
+    }
+    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${process.env.WX_APPID}&secret=${process.env.WX_SECRET}&js_code=${code}&grant_type=authorization_code`;
+    https.get(url, (resp) => {
+      let data = '';
+      resp.on('data', (chunk) => { data += chunk; });
+      resp.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.errcode) {
+            console.error('code2Session error:', json.errcode, json.errmsg);
+            return resolve(null);
+          }
+          resolve(json.openid);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }).on('error', (e) => {
+      console.error('code2Session request error:', e.message);
+      resolve(null);
+    });
+  });
 }
 
 async function dbQuery(queryStr, params = []) {
@@ -187,8 +256,22 @@ app.post('/api/admin/login', sensitiveLimiter, async (req, res, next) => {
       return fail(res, '用户名或密码错误', 401);
     }
     const admin = result.recordset[0];
-    if (admin.password_hash !== password) {
+    if (!verifyPassword(password, admin.password_hash)) {
       return fail(res, '用户名或密码错误', 401);
+    }
+    // 兼容旧版明文密码：首次登录成功后自动升级为加盐哈希存储
+    if (!admin.password_hash || !admin.password_hash.startsWith('scrypt$')) {
+      try {
+        await dbQuery(
+          'UPDATE [admin] SET password_hash = @hash WHERE id = @id',
+          [
+            { name: 'hash', type: sql.NVarChar, value: hashPassword(password) },
+            { name: 'id', type: sql.Int, value: admin.id }
+          ]
+        );
+      } catch (e) {
+        console.error('密码升级失败:', e.message);
+      }
     }
     const token = jwt.sign(
       { admin_id: admin.id, username: admin.username, role: admin.role },
@@ -298,7 +381,17 @@ app.post('/api/login', sensitiveLimiter, async (req, res, next) => {
   try {
     let { openid, code, nickname, avatar_url } = req.body;
     if (!openid && code) {
-      openid = code;
+      // 已配置微信小程序 AppID/Secret 时，通过 code2Session 换取真实 openid
+      if (process.env.WX_APPID && process.env.WX_SECRET) {
+        const realOpenid = await wxCode2Session(code);
+        if (!realOpenid) {
+          return fail(res, '微信登录失败，请重试', 401);
+        }
+        openid = realOpenid;
+      } else {
+        // 开发/演示模式：未配置微信凭证时，暂以 code 作为 openid 兜底
+        openid = code;
+      }
     }
     if (!openid) {
       return fail(res, '缺少 openid 或 code', 400);
@@ -749,6 +842,39 @@ app.post('/api/reviews', userAuth, async (req, res, next) => {
   }
 });
 
+// 用户提醒商家发货：记录提醒，供后台查看（需订单归属本人且状态为待发货）
+app.post('/api/orders/:order_no/remind', userAuth, async (req, res, next) => {
+  try {
+    const orderNo = req.params.order_no;
+    const userId = req.user.user_id;
+
+    const result = await dbQuery(
+      'SELECT id, user_id, status FROM [orders] WHERE order_no = @orderNo',
+      [{ name: 'orderNo', type: sql.NVarChar, value: orderNo }]
+    );
+    if (result.recordset.length === 0) {
+      return fail(res, '订单不存在', 404);
+    }
+    if (result.recordset[0].user_id !== userId) {
+      return fail(res, '无权限操作此订单', 403);
+    }
+    if (result.recordset[0].status !== 1) {
+      return fail(res, '当前订单状态无需提醒发货', 400);
+    }
+
+    await dbQuery(
+      'INSERT INTO [order_remind] (order_no, user_id) VALUES (@orderNo, @userId)',
+      [
+        { name: 'orderNo', type: sql.NVarChar, value: orderNo },
+        { name: 'userId', type: sql.Int, value: userId }
+      ]
+    );
+    success(res, null, '已提醒商家发货');
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/reviews', async (req, res, next) => {
   try {
     const clothingId = req.query.clothing_id;
@@ -839,7 +965,7 @@ app.get('/api/favorites', userAuth, async (req, res, next) => {
   }
 });
 
-app.post('/api/upload', (req, res, next) => {
+app.post('/api/upload', adminAuth, (req, res, next) => {
   upload.single('file')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {

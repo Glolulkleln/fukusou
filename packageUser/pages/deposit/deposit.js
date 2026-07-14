@@ -22,7 +22,8 @@ Page({
         this.setData({ summary });
       })
       .catch(err => {
-        console.error('押金汇总需在 cloud-api 中实现对应 action:', err);
+        console.error('获取押金汇总失败:', err);
+        wx.showToast({ title: err.message || '加载失败', icon: 'none' });
       });
   },
 
@@ -40,7 +41,8 @@ Page({
         this.setData({ records: formatted });
       })
       .catch(err => {
-        console.error('押金记录需在 cloud-api 中实现对应 action:', err);
+        console.error('获取押金记录失败:', err);
+        wx.showToast({ title: err.message || '加载失败', icon: 'none' });
       });
   }
 });

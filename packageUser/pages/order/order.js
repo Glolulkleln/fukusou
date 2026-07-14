@@ -112,7 +112,9 @@ Page({
   remindDelivery(e) {
     const orderNo = e.currentTarget.dataset.no;
     if (!orderNo) return;
-    wx.showToast({ title: '已提醒商家尽快发货', icon: 'success' });
+    callCloudApi('remindShip', { orderNo })
+      .then(() => wx.showToast({ title: '已提醒商家尽快发货', icon: 'success' }))
+      .catch(err => wx.showToast({ title: err.message || '提醒失败，请重试', icon: 'none' }));
   },
 
   goToReview(e) {

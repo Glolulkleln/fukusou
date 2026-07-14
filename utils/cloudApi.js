@@ -25,6 +25,7 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     getDepositSummary: { url: '/api/deposit/summary', method: 'GET' },
     getDepositRecords: { url: '/api/deposit/records', method: 'GET' },
     payOrder: { url: '/api/pay/mock', method: 'POST' },
+    remindShip: { url: '/api/orders/remind', method: 'POST' },
     cancelOrder: { url: '/api/orders/status', method: 'PUT' },
     confirmReturn: { url: '/api/orders/status', method: 'PUT' },
     updateUserInfo: { url: '/api/user/info', method: 'PUT' },
@@ -71,6 +72,10 @@ const callCloudApi = async (action, params = {}, options = {}) => {
   if (action === 'payOrder' && (params.orderNo || params.order_no)) {
     url = '/api/pay/mock';
     data = { order_no: params.orderNo || params.order_no };
+  }
+  if (action === 'remindShip' && (params.orderNo || params.order_no)) {
+    url = '/api/orders/' + (params.orderNo || params.order_no) + '/remind';
+    data = {};
   }
   if (action === 'submitReview') {
     data = {

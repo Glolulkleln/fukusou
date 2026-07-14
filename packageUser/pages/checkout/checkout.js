@@ -19,6 +19,7 @@ Page({
   onLoad() {
     this.initDates();
     this.loadCheckoutItems();
+    this.loadDefaultAddress();
   },
 
   initDates() {
