@@ -1,0 +1,168 @@
+<view class="detail-container" wx:if="{{orderDetail}}">
+  <view class="status-banner">
+    <text class="status-txt">{{orderDetail.statusText}}</text>
+  </view>
+
+  <view class="timeline-card">
+    <view class="timeline-item {{item.done ? 'done' : ''}} {{item.cancel ? 'cancel' : ''}}" wx:for="{{timeline}}" wx:key="title">
+      <view class="timeline-dot"></view>
+      <view class="timeline-body">
+        <view class="timeline-title">{{item.title}}</view>
+        <view wx:if="{{item.desc}}" class="timeline-desc">{{item.desc}}</view>
+      </view>
+    </view>
+  </view>
+
+
+  <view class="express-card" wx:if="{{orderDetail.express_no}}">
+    <view class="express-header">
+      <view class="express-icon">
+        <text class="express-icon-text">物</text>
+      </view>
+      <view class="express-title">
+        <text class="express-company">{{orderDetail.express_company}}</text>
+        <text class="express-status">运输中</text>
+      </view>
+    </view>
+    <view class="express-no-row" bindtap="copyExpressNo">
+      <text class="express-no-label">快递单号</text>
+      <view class="express-no-content">
+        <text class="express-no">{{orderDetail.express_no}}</text>
+        <text class="copy-btn">复制</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="card-title">租赁信息</view>
+    <view class="info-item">
+      <text class="label">起租日期</text>
+      <text class="value">{{orderDetail.rent_start_time}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">归还截止</text>
+      <text class="value">{{orderDetail.rent_end_time}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">租赁天数</text>
+      <text class="value">{{orderDetail.rent_days}}天</text>
+    </view>
+    <view class="info-item">
+      <text class="label">配送地址</text>
+      <text class="value address-text">江苏省南京市江宁区弘景大道1号 南京工程学院</text>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="card-title">商品明细</view>
+    <view class="clothing-row">
+      <image class="clothing-img" src="{{orderDetail.main_image}}" mode="aspectFill"></image>
+      <view class="clothing-meta">
+        <view class="name">{{orderDetail.name}}</view>
+        <view class="spec">所选规格: {{orderDetail.selected_spec}}</view>
+        <view class="price">日租金: ￥{{orderDetail.original_price}}/天</view>
+        <view class="price">总租金: ￥{{orderDetail.rent_amount}}（{{orderDetail.rent_days}}天）</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="card-title">费用账单</view>
+    <view class="info-item">
+      <text class="label">服装租金合计</text>
+      <text class="value">￥{{orderDetail.rent_amount}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">冻结押金金额</text>
+      <text class="value">￥{{orderDetail.deposit_amount}}</text>
+    </view>
+    <view class="info-item" wx:if="{{orderDetail.discount_amount > 0}}">
+      <text class="label">优惠抵扣</text>
+      <text class="value" style="color:#67c23a;">-￥{{orderDetail.discount_amount}}</text>
+    </view>
+    <view class="info-item total-row">
+      <text class="label font-bold">总计实付款</text>
+      <text class="value price-highlight">￥{{orderDetail.total_amount}}</text>
+    </view>
+  </view>
+
+  <view class="info-card">
+    <view class="card-title">订单日志</view>
+    <view class="info-item">
+      <text class="label">业务订单号</text>
+      <text class="value">{{orderDetail.order_no}}</text>
+    </view>
+    <view class="info-item">
+      <text class="label">创建系统时间</text>
+      <text class="value">{{orderDetail.created_at}}</text>
+    </view>
+  </view>
+
+  <view class="action-bottom-bar">
+    <view class="btn default-btn" wx:if="{{orderDetail.status === 0}}" data-no="{{orderDetail.order_no}}" data-status="{{5}}" bindtap="changeStatus">取消订单</view>
+    <view class="btn primary-btn" wx:if="{{orderDetail.status === 0}}" data-no="{{orderDetail.order_no}}" data-status="{{1}}" bindtap="changeStatus">去支付</view>
+    
+    <view class="btn warning-btn" wx:if="{{orderDetail.status === 1}}" bindtap="remindShip">提醒发货</view>
+    
+    <view class="btn primary-btn" wx:if="{{orderDetail.status === 2}}" data-no="{{orderDetail.order_no}}" data-status="{{3}}" bindtap="changeStatus">申请归还</view>
+    
+    <view class="btn disabled-btn" wx:if="{{orderDetail.status === 3}}">待确认归还</view>
+    
+    <view class="btn primary-btn" wx:if="{{orderDetail.status === 4}}" bindtap="goToReview">去评价</view>
+    
+    <view class="btn disabled-btn" wx:if="{{orderDetail.status === 5}}">已取消</view>
+  </view>
+
+  <view class="pay-popup-mask" wx:if="{{showPayPopup}}" bindtap="closePayPopup"></view>
+  <view class="pay-popup {{showPayPopup ? 'show' : ''}}">
+    <view class="pay-popup-header">
+      <text class="pay-popup-title">选择支付方式</text>
+      <view class="pay-popup-close" bindtap="closePayPopup">×</view>
+    </view>
+
+    <view class="pay-method-list">
+      <view class="pay-method-item {{payMethod === 'wechat' ? 'active' : ''}}" data-method="wechat" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon wechat-icon">微</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">微信支付</view>
+            <view class="pay-method-desc">推荐使用微信支付</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'wechat' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view class="pay-method-item {{payMethod === 'alipay' ? 'active' : ''}}" data-method="alipay" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon alipay-icon">支</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">支付宝</view>
+            <view class="pay-method-desc">支付宝安全支付</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'alipay' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view class="pay-method-item {{payMethod === 'mock' ? 'active' : ''}}" data-method="mock" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon mock-icon">模</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">模拟支付</view>
+            <view class="pay-method-desc">开发测试专用，模拟支付成功</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'mock' ? 'checked' : ''}}"></view>
+      </view>
+    </view>
+
+    <view class="pay-popup-footer">
+      <view class="pay-amount">
+        <text class="pay-amount-label">应付金额:</text>
+        <text class="pay-amount-value">￥{{orderDetail.total_amount}}</text>
+      </view>
+      <view class="pay-confirm-btn {{isPaying ? 'disabled' : ''}}" bindtap="confirmPayment">
+        {{isPaying ? '支付中...' : '确认支付'}}
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,266 @@
+page {
+  background-color: #f7f8fa;
+  padding-bottom: 120rpx; 
+}
+
+.main-image {
+  width: 100%;
+  height: 750rpx;
+  background-color: #e0e0e0;
+}
+
+.info-box, .spec-box, .review-box {
+  background-color: #ffffff;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.rent-price {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+}
+
+.unit {
+  font-size: 26rpx;
+  color: #ff4d4f;
+  margin-left: 4rpx;
+}
+
+.deposit-price {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+.clothing-name {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333333;
+  line-height: 1.5;
+}
+
+.stock-info {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+}
+
+.stock-available {
+  color: #52c41a;
+}
+
+.stock-empty {
+  color: #ff4d4f;
+}
+
+.box-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 24rpx;
+}
+
+.spec-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.spec-item {
+  padding: 14rpx 36rpx;
+  background-color: #f2f2f2;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333333;
+  margin-right: 24rpx;
+  margin-bottom: 24rpx;
+  border: 2rpx solid transparent;
+}
+
+.spec-item.active {
+  background-color: #fff0f0;
+  color: #ff4d4f;
+  border-color: #ff4d4f;
+  font-weight: bold;
+}
+
+.days-box {
+  background-color: #ffffff;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.days-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.days-item {
+  padding: 14rpx 36rpx;
+  background-color: #f2f2f2;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  color: #333333;
+  margin-right: 24rpx;
+  margin-bottom: 24rpx;
+  border: 2rpx solid transparent;
+}
+
+.days-item.active {
+  background-color: #fff0f0;
+  color: #ff4d4f;
+  border-color: #ff4d4f;
+  font-weight: bold;
+}
+
+.total-rent-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: 16rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #f2f2f2;
+}
+
+.total-label {
+  font-size: 28rpx;
+  color: #666666;
+}
+
+.total-price {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+  margin-left: 8rpx;
+}
+
+.days-hint {
+  font-size: 24rpx;
+  color: #999999;
+  margin-left: 12rpx;
+}
+
+.empty-review {
+  font-size: 26rpx;
+  color: #999999;
+  text-align: center;
+  padding: 40rpx 0;
+}
+
+.review-item {
+  border-bottom: 2rpx solid #f2f2f2;
+  padding: 20rpx 0;
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-user {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.user-avatar {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+  background-color: #eeeeee;
+}
+
+.user-name {
+  font-size: 26rpx;
+  color: #333333;
+  flex: 1;
+}
+
+.review-stars {
+  font-size: 24rpx;
+  color: #ff9900;
+}
+
+.review-content {
+  font-size: 28rpx;
+  color: #666666;
+  line-height: 1.6;
+}
+
+.review-images {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 16rpx;
+}
+
+.review-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
+  background-color: #f2f2f2;
+}
+
+.bottom-action {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 110rpx;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 0 30rpx;
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.04);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.fav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 30rpx;
+}
+
+.fav-icon {
+  font-size: 40rpx;
+  line-height: 1;
+  margin-bottom: 4rpx;
+}
+
+.fav-text {
+  font-size: 22rpx;
+  color: #666666;
+}
+
+.cart-btn, .rent-btn {
+  flex: 1;
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  border-radius: 42rpx;
+}
+
+.cart-btn {
+  background-color: #ffe6e6;
+  color: #ff4d4f;
+  margin-right: 24rpx;
+}
+
+.rent-btn {
+  background-color: #ff4d4f;
+  color: #ffffff;
+}
+
+.cart-btn.disabled, .rent-btn.disabled {
+  background-color: #cccccc;
+  color: #ffffff;
+  opacity: 0.6;
+}

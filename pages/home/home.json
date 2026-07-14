@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "skeleton-loader": "/components/skeleton-loader/skeleton-loader"
+  },
+  "enablePullDownRefresh": true
+}

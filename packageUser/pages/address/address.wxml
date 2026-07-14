@@ -1,0 +1,33 @@
+<view class="address-container">
+  <view class="loading-state" wx:if="{{loading}}">
+    加载中...
+  </view>
+
+  <block wx:else>
+    <view class="empty-state" wx:if="{{addresses.length === 0}}">
+      暂无收货地址，请添加
+    </view>
+
+    <view class="address-list" wx:else>
+      <view class="address-item" wx:for="{{addresses}}" wx:key="id">
+        <view class="item-main" data-id="{{item.id}}" bindtap="selectAddress">
+          <view class="user-info">
+            <text class="name">{{item.consignee}}</text>
+            <text class="phone">{{item.phone}}</text>
+            <text class="default-tag" wx:if="{{item.is_default === 1}}">默认</text>
+          </view>
+          <view class="address-detail">{{item.detailed_address}}</view>
+        </view>
+        <view class="item-bar">
+          <view class="action-btn" data-id="{{item.id}}" wx:if="{{!selectMode}}" bindtap="editAddress">编辑</view>
+          <view class="action-btn" data-id="{{item.id}}" wx:if="{{!selectMode}}" bindtap="deleteAddress">删除</view>
+          <view class="action-btn primary" data-id="{{item.id}}" wx:if="{{selectMode}}" bindtap="selectAddress">选择</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="bottom-bar">
+    <view class="add-btn" bindtap="addAddress">新建收货地址</view>
+  </view>
+</view>

@@ -1,0 +1,9 @@
+{
+  "usingComponents": {
+    "review-list": "/components/review-list/review-list",
+    "skeleton-loader": "/components/skeleton-loader/skeleton-loader"
+  },
+  "componentPlaceholder": {
+    "review-list": "skeleton-loader"
+  }
+}

@@ -1,0 +1,10 @@
+<view class="skeleton-container">
+  <view class="skeleton-title pulse"></view>
+  <view class="skeleton-item">
+    <view class="skeleton-avatar pulse"></view>
+    <view class="skeleton-text-group">
+      <view class="skeleton-text pulse"></view>
+      <view class="skeleton-text short pulse"></view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,41 @@
+{
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "uploads" },
+      { "type": "folder", "value": "cloudfunctions" },
+      { "type": "folder", "value": "admin-system" },
+      { "type": "folder", "value": "deprecated" },
+      { "type": "folder", "value": "skills" },
+      { "type": "folder", "value": "txt" },
+      { "type": "folder", "value": ".trae" },
+      { "type": "folder", "value": "node_modules" },
+      { "type": "file", "value": "server.js" },
+      { "type": "file", "value": "SQLQuerycloinsert.sql" },
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": ".env" },
+      { "type": "file", "value": ".env.example" },
+      { "type": "file", "value": "package.json" },
+      { "type": "file", "value": "package-lock.json" },
+      { "type": "file", "value": "服装租赁小程序研发模块清单.docx" }
+    ]
+  },
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": false,
+    "enhance": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "useCompilerPlugins": false,
+    "minifyWXML": true
+  },
+  "compileType": "miniprogram",
+  "simulatorPluginLibVersion": {},
+  "appid": "wxd245bf97c59e24a4",
+  "editorSetting": {}
+}

@@ -1,0 +1,343 @@
+page {
+  background-color: #f7f8fa;
+  padding-bottom: 120rpx;
+}
+
+.address-box, .date-box, .item-list, .summary-box {
+  background-color: #ffffff;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.address-title, .item-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 16rpx;
+}
+
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.address-header .address-title {
+  margin-bottom: 0;
+}
+
+.change-address {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.address-detail {
+  font-size: 28rpx;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.empty-address {
+  font-size: 28rpx;
+  color: #999999;
+  line-height: 1.5;
+}
+
+.date-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #f2f2f2;
+}
+
+.date-item:last-child {
+  border-bottom: none;
+}
+
+.date-label {
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.picker-value {
+  font-size: 30rpx;
+  color: #ff4d4f;
+  font-weight: bold;
+}
+
+.item-card {
+  display: flex;
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 2rpx solid #f2f2f2;
+}
+
+.item-image {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 12rpx;
+  background-color: #e0e0e0;
+  margin-right: 20rpx;
+}
+
+.item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item-name {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.item-spec {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.item-days {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.item-price {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 28rpx;
+  color: #666666;
+  margin-bottom: 16rpx;
+}
+
+.summary-item:last-child {
+  margin-bottom: 0;
+}
+
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 110rpx;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30rpx;
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.04);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.total-price {
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.highlight {
+  color: #ff4d4f;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.submit-btn {
+  width: 240rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  background-color: #ff4d4f;
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: bold;
+  border-radius: 40rpx;
+}
+
+.pay-popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.pay-popup {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ffffff;
+  border-radius: 24rpx 24rpx 0 0;
+  z-index: 1001;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pay-popup.show {
+  transform: translateY(0);
+}
+
+.pay-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 2rpx solid #f2f2f2;
+}
+
+.pay-popup-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+}
+
+.pay-popup-close {
+  width: 50rpx;
+  height: 50rpx;
+  line-height: 46rpx;
+  text-align: center;
+  font-size: 40rpx;
+  color: #999999;
+}
+
+.pay-method-list {
+  padding: 20rpx 30rpx;
+}
+
+.pay-method-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 20rpx;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+
+.pay-method-item:last-child {
+  border-bottom: none;
+}
+
+.pay-method-item.active {
+  background-color: #fafafa;
+  border-radius: 12rpx;
+}
+
+.pay-method-left {
+  display: flex;
+  align-items: center;
+}
+
+.pay-icon {
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: bold;
+  margin-right: 20rpx;
+}
+
+.wechat-icon {
+  background-color: #07c160;
+}
+
+.alipay-icon {
+  background-color: #1677ff;
+}
+
+.mock-icon {
+  background-color: #ff7a00;
+}
+
+.pay-method-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pay-method-name {
+  font-size: 30rpx;
+  color: #333333;
+  font-weight: 500;
+}
+
+.pay-method-desc {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 6rpx;
+}
+
+.pay-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border: 3rpx solid #d9d9d9;
+  border-radius: 50%;
+  position: relative;
+}
+
+.pay-radio.checked {
+  border-color: #ff4d4f;
+}
+
+.pay-radio.checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18rpx;
+  height: 18rpx;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+}
+
+.pay-popup-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 30rpx;
+  border-top: 2rpx solid #f2f2f2;
+}
+
+.pay-amount {
+  display: flex;
+  align-items: baseline;
+}
+
+.pay-amount-label {
+  font-size: 28rpx;
+  color: #666666;
+}
+
+.pay-amount-value {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+  margin-left: 10rpx;
+}
+
+.pay-confirm-btn {
+  width: 280rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  background-color: #ff4d4f;
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: bold;
+  border-radius: 42rpx;
+}
+
+.pay-confirm-btn.disabled {
+  background-color: #ffb3b3;
+}

@@ -1,0 +1,31 @@
+<view class="category-container">
+  <scroll-view class="left-nav" scroll-y="true">
+    <view
+      class="nav-item {{currentCategoryId == item.id ? 'active' : ''}}"
+      wx:for="{{categoryList}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="switchCategory"
+    >
+      {{item.name}}
+    </view>
+  </scroll-view>
+
+  <scroll-view class="right-content" scroll-y="true">
+    <view class="loading-state" wx:if="{{loading}}">
+      加载中...
+    </view>
+
+    <view class="clothing-list" wx:else>
+      <view class="empty-tip" wx:if="{{!clothingList || clothingList.length === 0}}">暂无服装</view>
+
+      <view class="clothing-item" wx:for="{{clothingList}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+        <image class="clothing-image" src="{{item.main_image}}" mode="aspectFill"></image>
+        <view class="clothing-info">
+          <text class="clothing-name">{{item.name}}</text>
+          <text class="clothing-price">￥{{item.rent_price}}/天</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

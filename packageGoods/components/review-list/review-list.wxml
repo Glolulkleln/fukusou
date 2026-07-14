@@ -1,0 +1,29 @@
+<view class="review-list" wx:if="{{reviews && reviews.length > 0}}">
+  <view class="review-title">用户评价（{{reviews.length}}）</view>
+  <view class="review-item" wx:for="{{reviews}}" wx:key="index">
+    <view class="review-header">
+      <image class="review-avatar" src="{{item.avatar_url || '/assets/icons/profile.png'}}" mode="aspectFill"></image>
+      <view class="review-user-info">
+        <text class="review-nickname">{{item.nickname || '匿名用户'}}</text>
+        <text class="review-date">{{item.created_at}}</text>
+      </view>
+      <view class="review-rating">
+        <text class="star" wx:for="{{[1,2,3,4,5]}}" wx:for-item="star" wx:key="*this" style="color: {{star <= item.rating ? '#ff9500' : '#cccccc'}}">★</text>
+      </view>
+    </view>
+    <view class="review-content">{{item.content}}</view>
+    <view class="review-images" wx:if="{{item.images && item.images.length > 0}}">
+      <image
+        class="review-image"
+        wx:for="{{item.images}}"
+        wx:for-item="img"
+        wx:key="*this"
+        src="{{img}}"
+        mode="aspectFill"
+        data-url="{{img}}"
+        data-index="{{index}}"
+        bindtap="previewImage"
+      ></image>
+    </view>
+  </view>
+</view>

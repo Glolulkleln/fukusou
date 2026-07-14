@@ -1,0 +1,49 @@
+<view class="order-container">
+  <view class="tab-bar">
+    <view class="tab-item {{currentTab === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" bindtap="switchTab">
+      {{item}}
+    </view>
+  </view>
+
+  <view class="order-list">
+    <view class="empty-state" wx:if="{{orderList.length === 0}}">
+      暂无相关订单数据
+    </view>
+
+    <view class="order-item" wx:for="{{orderList}}" wx:key="order_no">
+      <view class="order-header" data-no="{{item.order_no}}" bindtap="viewOrderDetail">
+        <text class="order-no">订单编号: {{item.order_no}}</text>
+        <text class="order-status {{item.status === 4 ? 'done' : 'processing'}}">{{item.statusText}}</text>
+      </view>
+
+      <view class="order-content" data-no="{{item.order_no}}" bindtap="viewOrderDetail">
+        <image class="clothing-img" src="{{item.main_image}}" mode="aspectFill"></image>
+        <view class="clothing-info">
+          <view class="clothing-name">{{item.name}}</view>
+          <view class="clothing-spec">规格尺寸: {{item.selected_spec}}</view>
+          <view class="rent-dates">租赁档期: {{item.rent_start_time}} 至 {{item.rent_end_time}}</view>
+        </view>
+      </view>
+
+      <view class="order-footer">
+        <view class="price-info">
+          实付总额: <text class="total-price">￥{{item.total_amount}}</text>
+          <text class="deposit-hint">(含押金￥{{item.deposit_amount}})</text>
+        </view>
+        
+        <view class="action-bar">
+          <view class="btn primary-btn" wx:if="{{item.status === 0}}" data-no="{{item.order_no}}" bindtap="goToPay">去支付</view>
+          <view class="btn default-btn" wx:if="{{item.status === 0}}" data-no="{{item.order_no}}" data-status="{{5}}" bindtap="changeStatus">取消订单</view>
+
+          <view class="btn default-btn" wx:if="{{item.status === 1}}" data-no="{{item.order_no}}" bindtap="remindDelivery">提醒发货</view>
+
+          <view class="btn primary-btn" wx:if="{{item.status === 2}}" data-no="{{item.order_no}}" data-status="{{3}}" bindtap="changeStatus">申请归还</view>
+
+          <view class="btn warning-btn" wx:if="{{item.status === 3}}" data-no="{{item.order_no}}" bindtap="viewOrderDetail">等待后台核验</view>
+
+          <view class="btn primary-btn" wx:if="{{item.status === 4}}" data-item="{{item}}" bindtap="goToReview">发布买家秀</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

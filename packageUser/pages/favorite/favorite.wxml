@@ -1,0 +1,29 @@
+<view class="favorite-container">
+  <view class="loading-state" wx:if="{{loading}}">
+    加载中...
+  </view>
+
+  <block wx:else>
+    <view class="empty-state" wx:if="{{favorites.length === 0}}">
+      您还没有收藏过服装商品
+    </view>
+
+    <block wx:else>
+      <view class="favorite-list">
+        <view class="clothing-card" wx:for="{{favorites}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+          <image class="card-image" src="{{item.main_image}}" mode="aspectFill"></image>
+          <view class="card-info">
+            <view class="clothing-name">{{item.name}}</view>
+            <view class="price-row">
+              <text class="rent-price">￥{{item.rent_price}}/天</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="no-more" wx:if="{{noMore}}">
+        没有更多了
+      </view>
+    </block>
+  </block>
+</view>

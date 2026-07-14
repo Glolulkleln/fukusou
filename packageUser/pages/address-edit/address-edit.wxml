@@ -1,0 +1,22 @@
+<view class="edit-container">
+  <view class="form-box">
+    <view class="form-item">
+      <text class="label">收货人</text>
+      <input class="input" placeholder="请填写收货人姓名" value="{{consignee}}" bindinput="inputConsignee" />
+    </view>
+    <view class="form-item">
+      <text class="label">手机号码</text>
+      <input class="input" type="number" placeholder="请填写收货人手机号" value="{{phone}}" bindinput="inputPhone" />
+    </view>
+    <view class="form-item">
+      <text class="label">详细地址</text>
+      <input class="input" placeholder="请填写街道门牌等详细地址" value="{{detailed_address}}" bindinput="inputAddress" />
+    </view>
+    <view class="form-item switch-item">
+      <text class="label">设为默认地址</text>
+      <switch checked="{{is_default === 1}}" bindchange="switchDefault" color="#000000" />
+    </view>
+  </view>
+
+  <view class="submit-btn" bindtap="saveAddress">保存并使用</view>
+</view>

@@ -1,0 +1,47 @@
+<view class="cart-container">
+  <view class="cart-list">
+    <view class="empty-cart" wx:if="{{cartList.length === 0}}">
+      租赁袋空空如也，快去选购吧
+    </view>
+
+    <view class="cart-item" wx:for="{{cartList}}" wx:key="id">
+      <view class="checkbox-box" data-index="{{index}}" bindtap="toggleSelect">
+        <icon type="{{item.selected ? 'success' : 'circle'}}" color="{{item.selected ? '#ff4d4f' : '#cccccc'}}" size="22"></icon>
+      </view>
+
+      <view class="item-content" data-id="{{item.clothing_id}}" catchtap="goToDetail">
+        <image class="clothing-img" src="{{item.main_image}}" mode="aspectFill"></image>
+        <view class="clothing-info">
+          <view class="clothing-name">{{item.name}}</view>
+          <view class="clothing-spec">规格: {{item.spec}}</view>
+          <view class="rent-days-row">
+            <text class="rent-days-label">租赁:</text>
+            <view class="days-stepper">
+              <view class="days-btn" data-index="{{index}}" catchtap="decreaseDays">-</view>
+              <text class="days-count">{{item.rent_days || 1}}天</text>
+              <view class="days-btn" data-index="{{index}}" catchtap="increaseDays">+</view>
+            </view>
+          </view>
+          <view class="price-row">
+            <text class="rent-price">￥{{item.rent_price * (item.rent_days || 1)}}</text>
+            <text class="deposit-amount">押金￥{{item.deposit_amount}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="delete-action" data-index="{{index}}" catchtap="deleteItem">删除</view>
+    </view>
+  </view>
+
+  <view class="action-bar" wx:if="{{cartList.length > 0}}">
+    <view class="select-all" bindtap="toggleAll">
+      <icon type="{{isAllSelected ? 'success' : 'circle'}}" color="{{isAllSelected ? '#ff4d4f' : '#cccccc'}}" size="22"></icon>
+      <text class="all-txt">全选</text>
+    </view>
+    <view class="total-box">
+      <view class="total-line">应付合计: <text class="price">￥{{totalAmount}}</text></view>
+      <view class="sub-line">租金合计￥{{totalRent}} + 押金合计￥{{totalDeposit}}</view>
+    </view>
+    <view class="checkout-btn" bindtap="goToCheckout">结算袋</view>
+  </view>
+</view>

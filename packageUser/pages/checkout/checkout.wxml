@@ -1,0 +1,109 @@
+<view class="checkout-container">
+  <view class="address-box" bindtap="selectAddress">
+    <view class="address-header">
+      <view class="address-title">收货地址</view>
+      <view class="change-address">更换 ></view>
+    </view>
+    <view class="address-detail" wx:if="{{address}}">{{address}}</view>
+    <view class="empty-address" wx:else>请选择收货地址</view>
+  </view>
+
+  <view class="date-box">
+    <view class="date-item">
+      <text class="date-label">起租日期</text>
+      <picker mode="date" value="{{startDate}}" bindchange="bindStartDateChange">
+        <view class="picker-value">{{startDate}} ></view>
+      </picker>
+    </view>
+    <view class="date-item">
+      <text class="date-label">归还日期</text>
+      <picker mode="date" value="{{endDate}}" bindchange="bindEndDateChange">
+        <view class="picker-value">{{endDate}} ></view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="item-list">
+    <view class="item-title">商品明细</view>
+    <view class="item-card" wx:for="{{checkoutItems}}" wx:key="id">
+      <image class="item-image" src="{{item.main_image}}" mode="aspectFill"></image>
+      <view class="item-info">
+        <view class="item-name">{{item.name}}</view>
+        <view class="item-spec">规格: {{item.spec}}</view>
+        <view class="item-days">租赁天数: {{item.rent_days || 1}}天</view>
+        <view class="item-price">租金: ￥{{item.rent_price * (item.rent_days || 1)}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="summary-box">
+    <view class="summary-item">
+      <text>租金合计</text>
+      <text>￥{{totalRent}}</text>
+    </view>
+    <view class="summary-item">
+      <text>押金合计 (可退)</text>
+      <text>￥{{totalDeposit}}</text>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <view class="total-price">
+      待支付: <text class="highlight">￥{{totalAmount}}</text>
+    </view>
+    <view class="submit-btn" bindtap="submitOrder">提交订单</view>
+  </view>
+
+  <view class="pay-popup-mask" wx:if="{{showPayPopup}}" bindtap="closePayPopup"></view>
+  <view class="pay-popup {{showPayPopup ? 'show' : ''}}">
+    <view class="pay-popup-header">
+      <text class="pay-popup-title">选择支付方式</text>
+      <view class="pay-popup-close" bindtap="closePayPopup">×</view>
+    </view>
+
+    <view class="pay-method-list">
+      <view class="pay-method-item {{payMethod === 'wechat' ? 'active' : ''}}" data-method="wechat" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon wechat-icon">微</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">微信支付</view>
+            <view class="pay-method-desc">推荐使用微信支付</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'wechat' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view class="pay-method-item {{payMethod === 'alipay' ? 'active' : ''}}" data-method="alipay" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon alipay-icon">支</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">支付宝</view>
+            <view class="pay-method-desc">支付宝安全支付</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'alipay' ? 'checked' : ''}}"></view>
+      </view>
+
+      <view class="pay-method-item {{payMethod === 'mock' ? 'active' : ''}}" data-method="mock" bindtap="selectPayMethod">
+        <view class="pay-method-left">
+          <view class="pay-icon mock-icon">模</view>
+          <view class="pay-method-info">
+            <view class="pay-method-name">模拟支付</view>
+            <view class="pay-method-desc">开发测试专用，模拟支付成功</view>
+          </view>
+        </view>
+        <view class="pay-radio {{payMethod === 'mock' ? 'checked' : ''}}"></view>
+      </view>
+    </view>
+
+    <view class="pay-popup-footer">
+      <view class="pay-amount">
+        <text class="pay-amount-label">应付金额:</text>
+        <text class="pay-amount-value">￥{{totalAmount}}</text>
+      </view>
+      <view class="pay-confirm-btn {{isPaying ? 'disabled' : ''}}" bindtap="confirmPayment">
+        {{isPaying ? '支付中...' : '确认支付'}}
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,20 @@
+<view class="cs-container">
+  <view class="cs-card">
+    <view class="cs-row" bindtap="callPhone">
+      <text class="cs-label">客服热线</text>
+      <text class="cs-value">{{servicePhone}} ></text>
+    </view>
+    <view class="cs-row" bindtap="copyWechat">
+      <text class="cs-label">客服微信</text>
+      <text class="cs-value">{{serviceWechat}}（点击复制） ></text>
+    </view>
+    <view class="cs-row">
+      <text class="cs-label">服务时间</text>
+      <text class="cs-value">{{workTime}}</text>
+    </view>
+  </view>
+
+  <view class="cs-tip">如需紧急处理订单、退款等问题，请优先拨打客服热线。</view>
+
+  <view class="cs-btn" bindtap="goHelp">查看帮助中心</view>
+</view>

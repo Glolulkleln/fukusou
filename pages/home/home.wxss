@@ -1,0 +1,175 @@
+/* 全局页面背景 */
+page {
+  background-color: #f7f8fa;
+}
+
+.container {
+  padding-bottom: 40rpx;
+}
+
+/* 1. 搜索框样式 */
+.search-bar {
+  padding: 20rpx 30rpx;
+  background-color: #ffffff;
+}
+.search-input {
+  background-color: #f2f2f2;
+  height: 72rpx;
+  border-radius: 36rpx;
+  padding: 0 40rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+/* 2. 轮播图样式 */
+.banner-swiper {
+  width: 100%;
+  height: 320rpx;
+  background-color: #ffffff;
+}
+.banner-image {
+  width: 100%;
+  height: 100%;
+}
+.banner-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 3. 分类区样式 (Flex布局) */
+.category-section {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 30rpx 10rpx;
+  background-color: #ffffff;
+  margin-bottom: 20rpx;
+}
+.category-item {
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.category-icon {
+  width: 90rpx;
+  height: 90rpx;
+  background-color: #eeeeee;
+  border-radius: 50%;
+  margin-bottom: 12rpx;
+}
+.category-name {
+  font-size: 24rpx;
+  color: #333333;
+}
+
+/* 4. 推荐列表样式 (双列流) */
+.recommend-section {
+  padding: 0 30rpx;
+}
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333333;
+  margin: 20rpx 0 30rpx 0;
+}
+.clothing-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.clothing-item {
+  width: 48%;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+}
+.image-placeholder {
+  width: 100%;
+  height: 340rpx;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 28rpx;
+}
+.clothing-image {
+  width: 100%;
+  height: 340rpx;
+}
+.clothing-info {
+  padding: 20rpx;
+}
+.clothing-name {
+  font-size: 28rpx;
+  color: #333333;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 40rpx;
+  height: 80rpx;
+}
+.price-box {
+  margin-top: 16rpx;
+}
+.rent-price {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+}
+
+.empty-state {
+  text-align: center;
+  color: #999999;
+  font-size: 28rpx;
+  padding: 100rpx 0;
+}
+
+/* 5. 最近浏览（横向滚动） */
+.recent-section {
+  padding: 0 30rpx;
+  margin-top: 20rpx;
+}
+.recent-scroll {
+  white-space: nowrap;
+}
+.recent-item {
+  display: inline-block;
+  width: 200rpx;
+  margin-right: 20rpx;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  vertical-align: top;
+}
+.recent-image {
+  width: 200rpx;
+  height: 200rpx;
+}
+.recent-name {
+  display: block;
+  font-size: 24rpx;
+  color: #333333;
+  padding: 12rpx 12rpx 0 12rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-price {
+  display: block;
+  font-size: 24rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+  padding: 6rpx 12rpx 16rpx 12rpx;
+}

@@ -1,0 +1,9 @@
+node_modules/
+.env
+uploads/
+project.private.config.json
+.DS_Store
+*.log
+.trae/
+skills/
+*.docx

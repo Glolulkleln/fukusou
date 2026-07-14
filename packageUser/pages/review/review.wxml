@@ -1,0 +1,39 @@
+<view class="review-container">
+  <view class="score-box">
+    <text class="label">服装评分</text>
+    <view class="stars">
+      <view 
+        class="star-item {{rating >= item ? 'active' : ''}}" 
+        wx:for="{{[1,2,3,4,5]}}" 
+        wx:key="*this"
+        data-val="{{item}}"
+        bindtap="setRating"
+      >
+        ★
+      </view>
+    </view>
+  </view>
+
+  <view class="content-box">
+    <textarea 
+      class="review-textarea" 
+      placeholder="穿上效果怎么样？衣服干净吗？写下你的穿着体验，给其他同学参考吧..." 
+      maxlength="200"
+      bindinput="inputContent"
+    />
+    
+    <view class="image-uploader">
+      <view class="image-item" wx:for="{{imageList}}" wx:key="index">
+        <image class="uploaded-img" src="{{item}}" mode="aspectFill"></image>
+        <view class="delete-btn" data-index="{{index}}" catchtap="deleteImage">×</view>
+      </view>
+      
+      <view class="upload-btn" bindtap="chooseImage" wx:if="{{imageList.length < 3}}">
+        <text class="plus">+</text>
+        <text class="txt">添加图片</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="submit-btn" bindtap="submitReview">提交买家秀评价</view>
+</view>

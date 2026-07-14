@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>云裳微租 - 校园服装租赁后台管理系统</title>
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/element-plus"></script>
+  <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+  <style>
+    body { margin: 0; font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif; background-color: #f5f7fa; }
+    .aside-menu { height: 100vh; background-color: #001529; color: #fff; }
+    .logo-box { height: 60px; line-height: 60px; text-align: center; font-size: 18px; font-weight: bold; background-color: #002140; border-bottom: 1px solid #002140; }
+    .header-bar { background-color: #fff; border-bottom: 1px solid #e6e6e6; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 60px; }
+    .main-card { margin-bottom: 20px; }
+    .data-num { font-size: 28px; font-weight: bold; margin-top: 10px; color: #303133; }
+    .clothing-img { width: 60px; height: 60px; border-radius: 4px; object-fit: cover; }
+    .avatar-uploader .el-upload { border: 1px dashed var(--el-border-color); border-radius: 6px; cursor: pointer; position: relative; overflow: hidden; transition: var(--el-transition-duration-fast); }
+    .avatar-uploader .el-upload:hover { border-color: var(--el-color-primary); }
+    .el-icon.avatar-uploader-icon { font-size: 28px; color: #8c939d; width: 120px; height: 120px; text-align: center; }
+    .uploaded-preview { width: 120px; height: 120px; object-fit: cover; display: block; }
+    .login-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+    .login-box { width: 340px; background: #fff; border-radius: 8px; padding: 28px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+    .login-title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #303133; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 登录弹层 -->
+    <div class="login-mask" v-if="!token">
+      <div class="login-box">
+        <div class="login-title">云裳微租管理端登录</div>
+        <el-form label-width="70px" @submit.prevent>
+          <el-form-item label="账号">
+            <el-input v-model="loginForm.username" placeholder="请输入管理员账号" @keyup.enter="handleLogin" />
+          </el-form-item>
+          <el-form-item label="密码">
+            <el-input v-model="loginForm.password" type="password" show-password placeholder="请输入密码" @keyup.enter="handleLogin" />
+          </el-form-item>
+          <el-button type="primary" style="width: 100%;" :loading="loginLoading" @click="handleLogin">登录</el-button>
+        </el-form>
+      </div>
+    </div>
+
+    <el-container v-else>
+      <el-aside width="220px" class="aside-menu">
+        <div class="logo-box">云裳微租管理端</div>
+        <el-menu active-text-color="#ffd04b" background-color="#001529" class="el-menu-vertical" :default-active="activeMenu" text-color="#fff" @select="handleMenuSelect">
+          <el-menu-item index="dashboard">
+            <el-icon><menu-icon /></el-icon>
+            <span>数据大屏看板</span>
+          </el-menu-item>
+          <el-menu-item index="clothing">
+            <el-icon><goods /></el-icon>
+            <span>服装衣橱管理</span>
+          </el-menu-item>
+          <el-menu-item index="banners">
+            <el-icon><picture-icon /></el-icon>
+            <span>首页轮播配置</span>
+          </el-menu-item>
+          <el-menu-item index="reviews">
+            <el-icon><comment-icon /></el-icon>
+            <span>用户评价管理</span>
+          </el-menu-item>
+          <el-menu-item index="orders">
+            <el-icon><document /></el-icon>
+            <span>租赁订单处理</span>
+          </el-menu-item>
+          <el-menu-item index="users">
+            <el-icon><user /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+          <el-menu-item index="categories">
+            <el-icon><collection /></el-icon>
+            <span>分类管理</span>
+          </el-menu-item>
+        </el-menu>
+      </el-aside>
+      
+      <el-container>
+        <el-header class="header-bar">
+          <div class="bread">系统后台管理工作台</div>
+          <el-dropdown>
+            <span class="el-dropdown-link" style="cursor: pointer; font-weight: bold;">
+              {{ adminInfo.username || '系统管理员' }} <el-icon><arrow-down /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleLogout">退出系统</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </el-header>
+        
+        <el-main>
+          <div v-if="activeMenu === 'dashboard'">
+            <el-row :gutter="20">
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>注册学生总数</template>
+                  <div class="data-num">{{ stats.users }} 人</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>上架服装总数</template>
+                  <div class="data-num">{{ stats.clothings }} 件</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>全站产生订单</template>
+                  <div class="data-num">{{ stats.orders }} 笔</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>累计租赁营收</template>
+                  <div class="data-num">￥{{ stats.revenue }}</div>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+          
+          <div v-if="activeMenu === 'clothing'">
+            <el-card class="main-card">
+              <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+                <el-button type="black" style="background-color:#001529;color:#fff;" @click="openAddDialog">上架全新校园服装</el-button>
+                <el-button @click="getClothingList">重载刷新列表</el-button>
+              </div>
+              
+              <el-table :data="clothingList" style="width: 100%">
+                <el-table-column prop="id" label="服装ID" width="80"></el-table-column>
+                <el-table-column label="主图" width="100">
+                  <template #default="scope">
+                    <img :src="scope.row.main_image" class="clothing-img" />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="name" label="服装款型名称"></el-table-column>
+                <el-table-column prop="category_name" label="归属分类" width="120"></el-table-column>
+                <el-table-column prop="rent_price" label="日租金(元)" width="100"></el-table-column>
+                <el-table-column prop="deposit_amount" label="保障押金(元)" width="120"></el-table-column>
+                <el-table-column label="上架状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
+                      {{ scope.row.status === 1 ? '外网可见' : '已下架' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="管理操作" width="180">
+                  <template #default="scope">
+                    <el-button size="small" @click="openEditDialog(scope.row)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="deleteClothing(scope.row.id)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+
+          <div v-if="activeMenu === 'banners'">
+            <el-card class="main-card">
+              <div style="margin-bottom: 20px;">
+                <el-button type="black" style="background-color:#001529;color:#fff;" @click="openAddBannerDialog">投放新轮播广告</el-button>
+              </div>
+              <el-table :data="bannerList" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                <el-table-column label="广告图" width="180">
+                  <template #default="scope">
+                    <img :src="scope.row.image_url" style="width: 140px; height: 70px; object-fit: cover; border-radius: 4px;" />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="title" label="广告活动主题"></el-table-column>
+                <el-table-column prop="target_link" label="导流服装ID" width="120"></el-table-column>
+                <el-table-column prop="sort_order" label="排序权重" width="100"></el-table-column>
+                <el-table-column label="投放状态" width="120">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
+                      {{ scope.row.status === 1 ? '正在投放' : '已暂停' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="管理操作" width="120">
+                  <template #default="scope">
+                    <el-button size="small" type="danger" @click="deleteBanner(scope.row.id)">下架</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+
+          <div v-if="activeMenu === 'reviews'">
+            <el-card class="main-card">
+              <el-table :data="reviewList" style="width: 100%">
+                <el-table-column prop="id" label="评价ID" width="80"></el-table-column>
+                <el-table-column prop="nickname" label="学生名称" width="120"></el-table-column>
+                <el-table-column prop="clothing_name" label="被评服装"></el-table-column>
+                <el-table-column label="综合评分" width="140">
+                  <template #default="scope">
+                    <el-rate v-model="scope.row.rating" disabled></el-rate>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="content" label="体验心得内容"></el-table-column>
+                <el-table-column label="晒单买家秀" width="220">
+                  <template #default="scope">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <el-image v-for="img in parseImages(scope.row.images)" :key="img" :src="img" :preview-src-list="parseImages(scope.row.images)" class="clothing-img" style="width: 40px; height: 40px;"></el-image>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="管理操作" width="120">
+                  <template #default="scope">
+                    <el-button size="small" type="danger" @click="deleteReview(scope.row.id)">下架违规</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          
+          <div v-if="activeMenu === 'orders'">
+            <el-card class="main-card">
+              <el-table :data="orderList" style="width: 100%">
+                <el-table-column prop="order_no" label="业务订单号" width="200"></el-table-column>
+                <el-table-column prop="nickname" label="租借人学生"></el-table-column>
+                <el-table-column prop="clothing_name" label="租赁服装款型"></el-table-column>
+                <el-table-column prop="selected_spec" label="尺码规格" width="100"></el-table-column>
+                <el-table-column prop="total_amount" label="实付总金额" width="120"></el-table-column>
+                <el-table-column label="当前进展状态" width="120">
+                  <template #default="scope">
+                    <el-tag :type="getStatusTag(scope.row.status)">
+                      {{ getStatusText(scope.row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="控台指令流转" width="200">
+                  <template #default="scope">
+                    <el-button v-if="scope.row.status === 0" size="small" type="danger" @click="updateOrderStatus(scope.row.order_no, 5)">取消订单</el-button>
+                    <el-button v-if="scope.row.status === 1" size="small" type="primary" @click="shipOrder(scope.row)">一键发货</el-button>
+                    <el-button v-if="scope.row.status === 3" size="small" type="success" @click="updateOrderStatus(scope.row.order_no, 4)">确认归还退押金</el-button>
+                    <span v-if="scope.row.status === 2 || scope.row.status === 4 || scope.row.status === 5">-</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <div v-if="activeMenu === 'users'">
+            <el-card class="main-card">
+              <el-table :data="userList" style="width: 100%">
+                <el-table-column prop="id" label="用户ID" width="80"></el-table-column>
+                <el-table-column prop="nickname" label="昵称" width="140"></el-table-column>
+                <el-table-column prop="phone" label="手机号" width="140"></el-table-column>
+                <el-table-column label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
+                      {{ scope.row.status === 1 ? '正常' : '已禁用' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="注册时间"></el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button v-if="scope.row.status === 1" size="small" type="danger" @click="toggleUserStatus(scope.row)">禁用</el-button>
+                    <el-button v-else size="small" type="success" @click="toggleUserStatus(scope.row)">启用</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+
+          <div v-if="activeMenu === 'categories'">
+            <el-card class="main-card">
+              <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+                <el-button type="black" style="background-color:#001529;color:#fff;" @click="openAddCategoryDialog">新增分类</el-button>
+                <el-button @click="getCategoryList">重载刷新列表</el-button>
+              </div>
+              <el-table :data="categoryList" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                <el-table-column prop="name" label="分类名称"></el-table-column>
+                <el-table-column prop="sort_order" label="排序权重" width="120"></el-table-column>
+                <el-table-column label="管理操作" width="180">
+                  <template #default="scope">
+                    <el-button size="small" @click="openEditCategoryDialog(scope.row)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="deleteCategory(scope.row.id)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+
+        </el-main>
+      </el-container>
+    </el-container>
+
+    <el-dialog v-model="dialogVisible" :title="form.id ? '编辑服装商品档案' : '上架全新校园服装款型'" width="500px">
+      <el-form :model="form" label-width="100px">
+        <el-form-item label="服装名称">
+          <el-input v-model="form.name"></el-input>
+        </el-form-item>
+        <el-form-item label="服装大类">
+          <el-select v-model="form.category_id" placeholder="请选择场景大类">
+            <el-option v-for="cat in globalCategories" :key="cat.id" :label="cat.name" :value="cat.id"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服装效果主图">
+          <el-upload class="avatar-uploader" :action="uploadApiUrl" :headers="uploadHeaders" :show-file-list="false" :on-success="handleUploadSuccess">
+            <img v-if="form.main_image" :src="form.main_image" class="uploaded-preview" />
+            <el-icon v-else class="avatar-uploader-icon"><plus /></el-icon>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="单日租金">
+          <el-input-number v-model="form.rent_price" :min="0"></el-input-number>
+        </el-form-item>
+        <el-form-item label="基础安全押金">
+          <el-input-number v-model="form.deposit_amount" :min="0"></el-input-number>
+        </el-form-item>
+        <el-form-item label="可选规格尺寸">
+          <el-checkbox-group v-model="form.specs">
+            <el-checkbox label="S码" value="S码"></el-checkbox>
+            <el-checkbox label="M码" value="M码"></el-checkbox>
+            <el-checkbox label="L码" value="L码"></el-checkbox>
+            <el-checkbox label="XL码" value="XL码"></el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item label="立即发布上架">
+          <el-switch v-model="form.status" :active-value="1" :inactive-value="0"></el-switch>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitForm">确认落库保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="bannerDialogVisible" title="投放全新首页轮播广告" width="500px">
+      <el-form :model="bannerForm" label-width="100px">
+        <el-form-item label="广告主题">
+          <el-input v-model="bannerForm.title"></el-input>
+        </el-form-item>
+        <el-form-item label="广告图片">
+          <el-upload class="avatar-uploader" :action="uploadApiUrl" :headers="uploadHeaders" :show-file-list="false" :on-success="handleBannerUploadSuccess">
+            <img v-if="bannerForm.image_url" :src="bannerForm.image_url" class="uploaded-preview" />
+            <el-icon v-else class="avatar-uploader-icon"><plus /></el-icon>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="导流商品ID">
+          <el-input v-model="bannerForm.target_link" placeholder="点击该轮播图跳转的服装ID"></el-input>
+        </el-form-item>
+        <el-form-item label="排序权重">
+          <el-input-number v-model="bannerForm.sort_order" :min="1"></el-input-number>
+        </el-form-item>
+        <el-form-item label="投放状态">
+          <el-switch v-model="bannerForm.status" :active-value="1" :inactive-value="0"></el-switch>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="bannerDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitBannerForm">确认落库保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </div>
+
+    <el-dialog v-model="categoryDialogVisible" :title="categoryForm.id ? '编辑分类' : '新增分类'" width="420px">
+      <el-form :model="categoryForm" label-width="80px">
+        <el-form-item label="分类名称">
+          <el-input v-model="categoryForm.name"></el-input>
+        </el-form-item>
+        <el-form-item label="排序权重">
+          <el-input-number v-model="categoryForm.sort_order" :min="0"></el-input-number>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="categoryDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitCategoryForm">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    const app = createApp({
+      setup() {
+        // 后端服务地址：请修改为 server.js 实际运行的地址（与小程序端 utils/request.js 的 BASE_URL 保持一致）
+        const baseUrl = 'http://localhost:3000';
+        const uploadApiUrl = baseUrl + '/api/upload';
+
+        const token = ref('');
+        const adminInfo = ref({ username: '' });
+        const loginForm = ref({ username: '', password: '' });
+        const loginLoading = ref(false);
+
+        const activeMenu = ref('dashboard');
+        const stats = ref({ users: 0, clothings: 0, orders: 0, revenue: 0 });
+        const clothingList = ref([]);
+        const orderList = ref([]);
+        const bannerList = ref([]);
+        const reviewList = ref([]);
+        const globalCategories = ref([]);
+        const userList = ref([]);
+        const categoryList = ref([]);
+        const categoryDialogVisible = ref(false);
+        const categoryForm = ref({ id: null, name: '', sort_order: 0 });
+
+        const dialogVisible = ref(false);
+        const bannerDialogVisible = ref(false);
+
+        const form = ref({ id: null, name: '', category_id: null, main_image: '', rent_price: 0, deposit_amount: 0, specs: [], status: 1 });
+        const bannerForm = ref({ title: '', image_url: '', target_link: '', sort_order: 1, status: 1 });
+
+        // 统一请求封装：自动携带鉴权头，处理 401
+        const request = (url, options = {}) => {
+          const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+          if (token.value) headers['Authorization'] = 'Bearer ' + token.value;
+          return fetch(baseUrl + url, Object.assign({}, options, { headers }))
+            .then(res => {
+              if (res.status === 401) {
+                ElementPlus.ElMessage.error('登录已过期，请重新登录');
+                token.value = '';
+                return Promise.reject(new Error('未授权'));
+              }
+              return res.json().catch(() => ({}));
+            });
+        };
+
+        const getUploadHeaders = () => {
+          return token.value ? { Authorization: 'Bearer ' + token.value } : {};
+        };
+        const uploadHeaders = ref(getUploadHeaders());
+
+        const handleLogin = () => {
+          if (!loginForm.value.username || !loginForm.value.password) {
+            ElementPlus.ElMessage.warning('请输入账号和密码');
+            return;
+          }
+          loginLoading.value = true;
+          fetch(baseUrl + '/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(loginForm.value)
+          })
+            .then(res => res.json())
+            .then(res => {
+              loginLoading.value = false;
+              if (res.code === 200 && res.data && res.data.token) {
+                token.value = res.data.token;
+                adminInfo.value = res.data.adminInfo || { username: loginForm.value.username };
+                uploadHeaders.value = getUploadHeaders();
+                ElementPlus.ElMessage.success('登录成功');
+              } else {
+                ElementPlus.ElMessage.error(res.message || '登录失败');
+              }
+            })
+            .catch(() => {
+              loginLoading.value = false;
+              ElementPlus.ElMessage.error('网络请求失败');
+            });
+        };
+
+        const handleLogout = () => {
+          token.value = '';
+          adminInfo.value = { username: '' };
+          loginForm.value = { username: '', password: '' };
+        };
+
+        const handleMenuSelect = (index) => {
+          activeMenu.value = index;
+          if (index === 'dashboard') getDashboardStats();
+          if (index === 'clothing') getClothingList();
+          if (index === 'banners') getBannerList();
+          if (index === 'reviews') getAdminReviewList();
+          if (index === 'orders') getOrderList();
+          if (index === 'users') getUserList();
+          if (index === 'categories') getCategoryList();
+        };
+
+        const getGlobalCategories = () => {
+          request('/api/categories')
+            .then(res => { globalCategories.value = (res && res.data) || []; });
+        };
+
+        const getUserList = () => {
+          request('/api/admin/users?page=1&page_size=100')
+            .then(res => { userList.value = (res && res.data && res.data.list) || []; });
+        };
+
+        const toggleUserStatus = (row) => {
+          const next = row.status === 1 ? 0 : 1;
+          request(`/api/admin/users/${row.id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: next })
+          })
+          .then(res => {
+            if (res && res.code === 200) {
+              ElementPlus.ElMessage.success(next === 1 ? '已启用' : '已禁用');
+              getUserList();
+            } else {
+              ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+            }
+          })
+          .catch(() => {});
+        };
+
+        const getCategoryList = () => {
+          request('/api/admin/categories')
+            .then(res => { categoryList.value = (res && res.data) || []; });
+        };
+
+        const openAddCategoryDialog = () => {
+          categoryForm.value = { id: null, name: '', sort_order: 0 };
+          categoryDialogVisible.value = true;
+        };
+
+        const openEditCategoryDialog = (row) => {
+          categoryForm.value = { ...row };
+          categoryDialogVisible.value = true;
+        };
+
+        const deleteCategory = (id) => {
+          ElementPlus.ElMessageBox.confirm('确定要删除该分类吗？关联服装将变为未分类。', '提示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/categories/${id}`, { method: 'DELETE' })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('删除成功');
+                    getCategoryList();
+                    getGlobalCategories();
+                  } else {
+                    ElementPlus.ElMessage.error('删除失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        const submitCategoryForm = () => {
+          if (!categoryForm.value.name) {
+            ElementPlus.ElMessage.warning('请输入分类名称');
+            return;
+          }
+          const isEdit = !!categoryForm.value.id;
+          const url = isEdit ? `/api/admin/categories/${categoryForm.value.id}` : '/api/admin/categories';
+          const method = isEdit ? 'PUT' : 'POST';
+          request(url, {
+            method: method,
+            body: JSON.stringify(categoryForm.value)
+          })
+          .then(res => {
+            if (res && res.code === 200) {
+              ElementPlus.ElMessage.success('保存成功');
+              categoryDialogVisible.value = false;
+              getCategoryList();
+              getGlobalCategories();
+            } else {
+              ElementPlus.ElMessage.error('保存失败: ' + (res && res.message || '未知错误'));
+            }
+          })
+          .catch(() => {});
+        };
+
+        const getDashboardStats = () => {
+          request('/api/admin/dashboard')
+            .then(res => { stats.value = (res && res.data) || stats.value; });
+        };
+
+        const getClothingList = () => {
+          request('/api/admin/clothing')
+            .then(res => { clothingList.value = (res && res.data) || []; });
+        };
+
+        const getBannerList = () => {
+          request('/api/admin/banners')
+            .then(res => { bannerList.value = (res && res.data) || []; });
+        };
+
+        const getOrderList = () => {
+          request('/api/admin/orders')
+            .then(res => { orderList.value = (res && res.data) || []; });
+        };
+
+        const getAdminReviewList = () => {
+          request('/api/admin/reviews')
+            .then(res => { reviewList.value = (res && res.data) || []; });
+        };
+
+        const parseImages = (imgStr) => {
+          try {
+            return JSON.parse(imgStr || '[]');
+          } catch(e) {
+            return [];
+          }
+        };
+
+        const deleteReview = (id) => {
+          ElementPlus.ElMessageBox.confirm('确定要强制下架该条评论及其买家秀图片吗？', '提示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/reviews/${id}`, { method: 'DELETE' })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('下架成功');
+                    getAdminReviewList();
+                  } else {
+                    ElementPlus.ElMessage.error('下架失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        const deleteBanner = (id) => {
+          ElementPlus.ElMessageBox.confirm('确定要下架并删除该轮播图吗？', '提示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/banners/${id}`, { method: 'DELETE' })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('删除成功');
+                    getBannerList();
+                  } else {
+                    ElementPlus.ElMessage.error('删除失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        const handleUploadSuccess = (response) => {
+          if (response && response.code === 200) {
+            form.value.main_image = response.data;
+          } else {
+            ElementPlus.ElMessage.error('上传失败: ' + (response && response.message || '未知错误'));
+          }
+        };
+
+        const handleBannerUploadSuccess = (response) => {
+          if (response && response.code === 200) {
+            bannerForm.value.image_url = response.data;
+          } else {
+            ElementPlus.ElMessage.error('上传失败: ' + (response && response.message || '未知错误'));
+          }
+        };
+
+        const openAddDialog = () => {
+          form.value = { id: null, name: '', category_id: null, main_image: '', rent_price: 0, deposit_amount: 0, specs: [], status: 1 };
+          dialogVisible.value = true;
+        };
+
+        const openAddBannerDialog = () => {
+          bannerForm.value = { title: '', image_url: '', target_link: '', sort_order: 1, status: 1 };
+          bannerDialogVisible.value = true;
+        };
+
+        const openEditDialog = (row) => {
+          let parsedSpecs = [];
+          try {
+            parsedSpecs = JSON.parse(row.specs || '[]');
+          } catch(e) {
+            parsedSpecs = [];
+          }
+          form.value = { ...row, specs: parsedSpecs };
+          dialogVisible.value = true;
+        };
+
+        const submitForm = () => {
+          const isEdit = !!form.value.id;
+          const url = isEdit ? `/api/admin/clothing/${form.value.id}` : '/api/admin/clothing';
+          const method = isEdit ? 'PUT' : 'POST';
+
+          request(url, {
+            method: method,
+            body: JSON.stringify(form.value)
+          })
+          .then(res => {
+            if (res && res.code === 200) {
+              ElementPlus.ElMessage.success('操作成功，已真实写入数据库');
+              dialogVisible.value = false;
+              getClothingList();
+            } else {
+              ElementPlus.ElMessage.error('数据库落库失败: ' + (res && res.message || '未知错误'));
+            }
+          })
+          .catch(() => {});
+        };
+
+        const submitBannerForm = () => {
+          request('/api/admin/banners', {
+            method: 'POST',
+            body: JSON.stringify(bannerForm.value)
+          })
+          .then(res => {
+            if (res && res.code === 200) {
+              ElementPlus.ElMessage.success('轮播图真实投放成功！');
+              bannerDialogVisible.value = false;
+              getBannerList();
+            } else {
+              ElementPlus.ElMessage.error('数据库落库失败: ' + (res && res.message || '未知错误'));
+            }
+          })
+          .catch(() => {});
+        };
+
+        const deleteClothing = (id) => {
+          ElementPlus.ElMessageBox.confirm('确定要彻底删除该服装建档吗？', '警示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/clothing/${id}`, { method: 'DELETE' })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('删除成功');
+                    getClothingList();
+                  } else {
+                    ElementPlus.ElMessage.error('删除失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        // 管理员直接修改订单状态（受服务端 validTransitions 约束）
+        const updateOrderStatus = (orderNo, nextStatus) => {
+          request(`/api/admin/orders/${orderNo}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: nextStatus })
+          })
+          .then(res => {
+            if (res && res.code === 200) {
+              ElementPlus.ElMessage.success('指令流转成功');
+              getOrderList();
+            } else {
+              ElementPlus.ElMessage.error('流转失败: ' + (res && res.message || '未知错误'));
+            }
+          })
+          .catch(() => {});
+        };
+
+        // 管理员发货：写入快递单号并将状态 1 -> 2
+        const shipOrder = (row) => {
+          ElementPlus.ElMessageBox.prompt('请输入快递单号', '一键发货', {
+            inputPattern: /\S+/,
+            inputErrorMessage: '快递单号不能为空'
+          })
+          .then(({ value }) => {
+            request(`/api/admin/orders/${row.order_no}/ship`, {
+              method: 'PUT',
+              body: JSON.stringify({ express_no: value })
+            })
+            .then(res => {
+              if (res && res.code === 200) {
+                ElementPlus.ElMessage.success('发货成功');
+                getOrderList();
+              } else {
+                ElementPlus.ElMessage.error('发货失败: ' + (res && res.message || '未知错误'));
+              }
+            })
+            .catch(() => {});
+          })
+          .catch(() => {});
+        };
+
+        const getStatusText = (status) => {
+          if (status === 0) return '待支付';
+          if (status === 1) return '待发货';
+          if (status === 2) return '租赁中';
+          if (status === 3) return '待归还';
+          if (status === 4) return '已完成';
+          if (status === 5) return '已取消';
+          return '未知';
+        };
+
+        const getStatusTag = (status) => {
+          if (status === 0) return 'warning';
+          if (status === 1) return 'primary';
+          if (status === 2) return 'info';
+          if (status === 3) return 'danger';
+          if (status === 4) return 'success';
+          return 'info';
+        };
+
+        onMounted(() => {
+          getGlobalCategories();
+          // 若浏览器已保存过登录态可在此恢复；默认每次进入需登录
+        });
+
+        return {
+          baseUrl, uploadApiUrl, token, adminInfo, loginForm, loginLoading, uploadHeaders,
+          activeMenu, stats, clothingList, orderList, bannerList, reviewList, globalCategories, dialogVisible, bannerDialogVisible, form, bannerForm,
+          userList, categoryList, categoryDialogVisible, categoryForm,
+          handleLogin, handleLogout, handleMenuSelect, getClothingList, openAddDialog, openEditDialog, openAddBannerDialog, parseImages, deleteReview, deleteBanner,
+          submitForm, submitBannerForm, deleteClothing, updateOrderStatus, shipOrder, getStatusText, getStatusTag, handleUploadSuccess, handleBannerUploadSuccess,
+          getUserList, toggleUserStatus, getCategoryList, openAddCategoryDialog, openEditCategoryDialog, deleteCategory, submitCategoryForm
+        };
+      }
+    });
+
+    app.use(ElementPlus);
+    app.component('menu-icon', ElementPlusIconsVue.Menu);
+    app.component('goods', ElementPlusIconsVue.Goods);
+    app.component('document', ElementPlusIconsVue.Document);
+    app.component('arrow-down', ElementPlusIconsVue.ArrowDown);
+    app.component('plus', ElementPlusIconsVue.Plus);
+    app.component('picture-icon', ElementPlusIconsVue.Picture);
+    app.component('comment-icon', ElementPlusIconsVue.Comment);
+    app.component('user', ElementPlusIconsVue.User);
+    app.component('collection', ElementPlusIconsVue.Collection);
+    app.component('ticket', ElementPlusIconsVue.Ticket);
+    app.mount('#app');
+  </script>
+</body>
+</html>

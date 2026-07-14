@@ -1,0 +1,8 @@
+<view class="help-container">
+  <view class="help-title">常见问题</view>
+  <view class="faq-card" wx:for="{{faqList}}" wx:key="q">
+    <view class="faq-q">Q：{{item.q}}</view>
+    <view class="faq-a">A：{{item.a}}</view>
+  </view>
+  <view class="tip">如未找到答案，可前往"联系客服"获取帮助。</view>
+</view>

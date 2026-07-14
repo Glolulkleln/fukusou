@@ -1,0 +1,94 @@
+page {
+  height: 100%;
+  background-color: #f7f8fa;
+}
+
+.category-container {
+  display: flex;
+  height: 100%;
+}
+
+.left-nav {
+  width: 200rpx;
+  height: 100%;
+  background-color: #f2f2f2;
+}
+
+.nav-item {
+  height: 100rpx;
+  line-height: 100rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.nav-item.active {
+  background-color: #ffffff;
+  color: #000000;
+  font-weight: bold;
+  border-left: 8rpx solid #000000;
+}
+
+.right-content {
+  flex: 1;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+.clothing-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.clothing-item {
+  display: flex;
+  margin-bottom: 30rpx;
+  background-color: #ffffff;
+}
+
+.clothing-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  background-color: #e0e0e0;
+  margin-right: 20rpx;
+}
+
+.clothing-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10rpx 0;
+}
+
+.clothing-name {
+  font-size: 28rpx;
+  color: #333333;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.clothing-price {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+}
+
+.empty-tip {
+  text-align: center;
+  color: #999999;
+  font-size: 28rpx;
+  margin-top: 100rpx;
+}
+
+.loading-state {
+  text-align: center;
+  color: #999999;
+  font-size: 28rpx;
+  padding: 100rpx 0;
+}

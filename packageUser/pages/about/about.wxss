@@ -1,0 +1,7 @@
+.about-container { padding: 40rpx 32rpx; background: #f5f7fa; min-height: 100vh; text-align: center; }
+.logo { font-size: 44rpx; font-weight: bold; color: #303133; margin-top: 40rpx; }
+.slogan { font-size: 26rpx; color: #909399; margin: 16rpx 0 40rpx; }
+.about-block { background: #fff; border-radius: 12rpx; padding: 28rpx; margin-bottom: 24rpx; text-align: left; }
+.about-h { font-size: 30rpx; font-weight: bold; color: #409eff; margin-bottom: 16rpx; }
+.about-p { font-size: 26rpx; color: #606266; line-height: 1.8; }
+.version { font-size: 24rpx; color: #c0c4cc; margin-top: 30rpx; }

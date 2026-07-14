@@ -1,0 +1,58 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索面试正装、汉服..." confirm-type="search" bindconfirm="onSearchConfirm" />
+  </view>
+
+  <block wx:if="{{loading}}">
+    <skeleton-loader></skeleton-loader>
+    <skeleton-loader></skeleton-loader>
+    <skeleton-loader></skeleton-loader>
+  </block>
+
+  <block wx:else>
+    <swiper class="banner-swiper" indicator-dots="true" indicator-active-color="#000000" autoplay="true" circular="true">
+      <block wx:for="{{bannerList}}" wx:key="id">
+        <swiper-item data-id="{{item.target_link}}" bindtap="onBannerTap">
+          <view class="banner-placeholder" wx:if="{{!item.image_url}}">轮播图加载中</view>
+          <image wx:else class="banner-image" src="{{item.image_url}}" mode="aspectFill"></image>
+        </swiper-item>
+      </block>
+    </swiper>
+
+    <view class="category-section">
+      <view class="category-item" wx:for="{{categoryList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCategoryTap">
+        <view class="category-icon"></view>
+        <text class="category-name">{{item.name}}</text>
+      </view>
+    </view>
+
+    <view class="recommend-section">
+      <view class="section-title">为你推荐</view>
+      <view class="empty-state" wx:if="{{clothingList.length === 0}}">
+        暂无推荐服装
+      </view>
+      <view class="clothing-list" wx:else>
+        <view class="clothing-item" wx:for="{{clothingList}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+          <image class="clothing-image" src="{{item.main_image}}" mode="aspectFill"></image>
+          <view class="clothing-info">
+            <text class="clothing-name">{{item.name}}</text>
+            <view class="price-box">
+              <text class="rent-price">￥{{item.rent_price}}/天</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="recent-section" wx:if="{{recentList.length > 0}}">
+      <view class="section-title">最近浏览</view>
+      <scroll-view class="recent-scroll" scroll-x="true">
+        <view class="recent-item" wx:for="{{recentList}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+          <image class="recent-image" src="{{item.main_image}}" mode="aspectFill"></image>
+          <text class="recent-name">{{item.name}}</text>
+          <text class="recent-price">￥{{item.rent_price}}/天</text>
+        </view>
+      </scroll-view>
+    </view>
+  </block>
+</view>

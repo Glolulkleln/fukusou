@@ -1,0 +1,28 @@
+<view class="search-result-container">
+  <view class="search-header">
+    <text class="tip">包含 "{{keyword}}" 的搜索结果</text>
+  </view>
+
+  <view class="result-list">
+    <view class="loading-state" wx:if="{{loading}}">
+      搜索中...
+    </view>
+
+    <block wx:else>
+      <view class="empty-box" wx:if="{{results.length === 0}}">
+        没有找到匹配的服装商品
+      </view>
+
+      <view class="clothing-card" wx:for="{{results}}" wx:key="id" data-id="{{item.id}}" bindtap="goToDetail">
+        <image class="card-image" src="{{item.main_image}}" mode="aspectFill"></image>
+        <view class="card-info">
+          <view class="clothing-name">{{item.name}}</view>
+          <view class="price-row">
+            <text class="rent-price">￥{{item.rent_price}}/天</text>
+            <text class="deposit-amount">押金￥{{item.deposit_amount}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

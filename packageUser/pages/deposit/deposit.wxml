@@ -1,0 +1,36 @@
+<view class="wallet-container">
+  <view class="dashboard-card">
+    <view class="dash-item">
+      <text class="title">当前冻结押金</text>
+      <text class="num highlight">￥{{summary.frozen}}</text>
+    </view>
+    <view class="dash-item">
+      <text class="title">累计已退押金</text>
+      <text class="num">￥{{summary.refunded}}</text>
+    </view>
+  </view>
+
+  <view class="flow-section">
+    <view class="section-header">资金变更流水明细</view>
+    
+    <view class="empty-state" wx:if="{{records.length === 0}}">
+      暂无任何押金流水账目记录
+    </view>
+
+    <view class="flow-list" wx:else>
+      <view class="flow-item" wx:for="{{records}}" wx:key="id">
+        <view class="flow-left">
+          <text class="remark">{{item.remark}}</text>
+          <text class="date">{{item.created_at}}</text>
+          <text class="order-no">关联号: {{item.order_no}}</text>
+        </view>
+        <view class="flow-right">
+          <text class="amount {{item.flow_type === 1 ? 'minus' : 'plus'}}">
+            {{item.flow_type === 1 ? '-' : '+'}}￥{{item.amount}}
+          </text>
+          <text class="status-tag">处理成功</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

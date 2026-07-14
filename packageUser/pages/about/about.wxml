@@ -1,0 +1,16 @@
+<view class="about-container">
+  <view class="logo">云裳微租</view>
+  <view class="slogan">校园服装租赁，让每一次出场都恰到好处</view>
+  <view class="about-block">
+    <view class="about-h">平台简介</view>
+    <view class="about-p">云裳微租是一个面向校园的服装租赁平台，提供面试正装、舞台演出、汉服写真、毕业学士服等多种场景服装的在线租赁服务，致力于以更低成本满足同学们的着装需求。</view>
+  </view>
+  <view class="about-block">
+    <view class="about-h">我们的服务</view>
+    <view class="about-p">· 丰富的服装品类与尺码选择</view>
+    <view class="about-p">· 灵活的租期与透明的租金</view>
+    <view class="about-p">· 押金可退，租赁无忧</view>
+    <view class="about-p">· 在线客服与帮助中心全程陪伴</view>
+  </view>
+  <view class="version">当前版本 v{{version}}</view>
+</view>

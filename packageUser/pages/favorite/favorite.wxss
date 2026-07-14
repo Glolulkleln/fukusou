@@ -1,0 +1,74 @@
+page {
+  background-color: #f7f8fa;
+}
+
+.empty-state {
+  text-align: center;
+  padding-top: 200rpx;
+  color: #999999;
+  font-size: 28rpx;
+}
+
+.favorite-list {
+  padding: 20rpx;
+}
+
+.clothing-card {
+  display: flex;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+}
+
+.card-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  background-color: #e0e0e0;
+  margin-right: 24rpx;
+}
+
+.card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.clothing-name {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: bold;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rent-price {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+}
+
+.loading-state {
+  text-align: center;
+  color: #999999;
+  font-size: 28rpx;
+  padding: 100rpx 0;
+}
+
+.no-more {
+  text-align: center;
+  color: #999999;
+  font-size: 24rpx;
+  padding: 30rpx 0;
+}

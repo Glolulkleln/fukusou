@@ -1,0 +1,136 @@
+page {
+  background-color: #f7f8fa;
+}
+
+.wallet-container {
+  padding: 24rpx;
+}
+
+.dashboard-card {
+  background-color: #000000;
+  border-radius: 20rpx;
+  padding: 40rpx 0;
+  display: flex;
+  margin-bottom: 30rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.12);
+}
+
+.dash-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.dash-item:first-child::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 2rpx;
+  background-color: rgba(255,255,255,0.2);
+}
+
+.dash-item .title {
+  font-size: 24rpx;
+  color: #aaaaaa;
+  margin-bottom: 14rpx;
+}
+
+.dash-item .num {
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.dash-item .num.highlight {
+  color: #ff4d4f;
+}
+
+.flow-section {
+  background-color: #ffffff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+}
+
+.section-header {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 2rpx solid #f2f2f2;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 100rpx 0;
+  color: #999999;
+  font-size: 26rpx;
+}
+
+.flow-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #f9f9f9;
+}
+
+.flow-item:last-child {
+  border-bottom: none;
+}
+
+.flow-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-left .remark {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+
+.flow-left .date {
+  font-size: 22rpx;
+  color: #999999;
+  margin-bottom: 4rpx;
+}
+
+.flow-left .order-no {
+  font-size: 20rpx;
+  color: #cccccc;
+}
+
+.flow-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.flow-right .amount {
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+
+.flow-right .amount.minus {
+  color: #333333;
+}
+
+.flow-right .amount.plus {
+  color: #ff4d4f;
+}
+
+.flow-right .status-tag {
+  font-size: 20rpx;
+  color: #52c41a;
+  background-color: #f6ffed;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  border: 2rpx solid #b7eb8f;
+}

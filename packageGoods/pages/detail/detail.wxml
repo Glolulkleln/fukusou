@@ -1,0 +1,69 @@
+<view class="container" wx:if="{{clothing}}">
+  <image class="main-image" src="{{clothing.main_image}}" mode="aspectFill" bindtap="previewImage"></image>
+
+  <view class="info-box">
+    <view class="price-row">
+      <view>
+        <text class="rent-price">￥{{clothing.rent_price}}</text>
+        <text class="unit">/天</text>
+      </view>
+      <text class="deposit-price">押金 ￥{{clothing.deposit_amount}}</text>
+    </view>
+    <view class="clothing-name">{{clothing.name}}</view>
+    <view class="stock-info">
+      <text wx:if="{{clothing.stock > 0}}" class="stock-available">库存：{{clothing.stock}} 件</text>
+      <text wx:else class="stock-empty">暂无库存</text>
+    </view>
+  </view>
+
+  <view class="spec-box">
+    <view class="box-title">选择规格</view>
+    <view class="spec-list">
+      <view
+        class="spec-item {{selectedSpec === item ? 'active' : ''}}"
+        wx:for="{{specs}}"
+        wx:key="*this"
+        data-spec="{{item}}"
+        bindtap="selectSpec"
+      >
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <view class="days-box">
+    <view class="box-title">选择租赁天数</view>
+    <view class="days-list">
+      <view
+        class="days-item {{rentDays === item ? 'active' : ''}}"
+        wx:for="{{rentDayOptions}}"
+        wx:key="*this"
+        data-days="{{item}}"
+        bindtap="setRentDays"
+      >
+        {{item}}天
+      </view>
+    </view>
+    <view class="total-rent-row">
+      <text class="total-label">总租金：</text>
+      <text class="total-price">￥{{clothing.rent_price * rentDays}}</text>
+      <text class="days-hint">（{{clothing.rent_price}}元/天 × {{rentDays}}天）</text>
+    </view>
+  </view>
+
+  <review-list reviews="{{reviews}}"></review-list>
+
+  <view class="bottom-action">
+    <view class="fav-btn" bindtap="toggleFavorite">
+      <text class="fav-icon" style="color: {{isFavorite ? '#ff4d4f' : '#666666'}}">{{isFavorite ? '★' : '☆'}}</text>
+      <text class="fav-text">收藏</text>
+    </view>
+    <view class="cart-btn {{clothing.stock <= 0 ? 'disabled' : ''}}" bindtap="{{clothing.stock > 0 ? 'addToCart' : ''}}">
+      {{clothing.stock > 0 ? '加入租赁袋' : '暂无库存'}}
+    </view>
+    <view class="rent-btn {{clothing.stock <= 0 ? 'disabled' : ''}}" bindtap="{{clothing.stock > 0 ? 'rentNow' : ''}}">
+      <text wx:if="{{clothing.stock > 0}}">立即租赁 ￥{{clothing.rent_price * rentDays + clothing.deposit_amount}}</text>
+      <text wx:else>暂无库存</text>
+    </view>
+  </view>
+</view>
