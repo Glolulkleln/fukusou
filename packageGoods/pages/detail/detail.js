@@ -28,7 +28,9 @@ Page({
       let parsedSpecs = [];
       try {
         parsedSpecs = JSON.parse(clothing.specs || '[]');
-      } catch (e) {}
+      } catch (e) {
+        console.error('规格解析失败:', e);
+      }
 
       this.setData({
         clothing,
@@ -101,7 +103,9 @@ Page({
       });
       if (list.length > 10) list = list.slice(0, 10);
       wx.setStorageSync('recentViews', list);
-    } catch (e) {}
+    } catch (e) {
+      console.error('保存最近浏览失败:', e);
+    }
   },
 
   async toggleFavorite() {
