@@ -753,13 +753,33 @@ app.post('/api/orders', sensitiveLimiter, userAuth, async (req, res, next) => {
 app.get('/api/orders', userAuth, async (req, res, next) => {
   try {
     const userId = req.user.user_id;
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.page_size) || 10;
+    const status = req.query.status;
+    const offset = (page - 1) * pageSize;
 
+    const where = ['o.user_id = @user_id'];
+    const params = [{ name: 'user_id', type: sql.Int, value: userId }];
+    if (status !== undefined && status !== '') {
+      where.push('o.status = @status');
+      params.push({ name: 'status', type: sql.TinyInt, value: parseInt(status, 10) });
+    }
+    const whereStr = 'WHERE ' + where.join(' AND ');
+
+    const countResult = await dbQuery(
+      `SELECT COUNT(*) as total FROM [orders] o ${whereStr}`,
+      params
+    );
+    const listParams = [...params,
+      { name: 'offset', type: sql.Int, value: offset },
+      { name: 'pageSize', type: sql.Int, value: pageSize }
+    ];
     const ordersResult = await dbQuery(
-      'SELECT o.*, c.name, c.main_image FROM [orders] o LEFT JOIN [clothing] c ON o.clothing_id = c.id WHERE o.user_id = @user_id ORDER BY o.created_at DESC',
-      [{ name: 'user_id', type: sql.Int, value: userId }]
+      `SELECT o.*, c.name, c.main_image FROM [orders] o LEFT JOIN [clothing] c ON o.clothing_id = c.id ${whereStr} ORDER BY o.created_at DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`,
+      listParams
     );
 
-    success(res, ordersResult.recordset);
+    success(res, { list: ordersResult.recordset, total: countResult.recordset[0].total, page, page_size: pageSize });
   } catch (error) {
     next(error);
   }
@@ -1545,8 +1565,37 @@ app.put('/api/admin/users/:id/status', adminAuth, async (req, res, next) => {
 
 app.get('/api/admin/orders', adminAuth, async (req, res, next) => {
   try {
-    const result = await dbQuery('SELECT o.*, u.nickname, u.phone as user_phone, c.name as clothing_name FROM [orders] o LEFT JOIN [user] u ON o.user_id = u.id LEFT JOIN [clothing] c ON o.clothing_id = c.id ORDER BY o.created_at DESC');
-    success(res, result.recordset);
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.page_size) || 20;
+    const status = req.query.status;
+    const keyword = req.query.keyword || '';
+    const offset = (page - 1) * pageSize;
+
+    const where = [];
+    const params = [];
+    if (status !== undefined && status !== '') {
+      where.push('o.status = @status');
+      params.push({ name: 'status', type: sql.TinyInt, value: parseInt(status, 10) });
+    }
+    if (keyword) {
+      where.push('(o.order_no LIKE @kw OR u.nickname LIKE @kw OR c.name LIKE @kw)');
+      params.push({ name: 'kw', type: sql.NVarChar, value: `%${keyword}%` });
+    }
+    const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+    const countResult = await dbQuery(
+      `SELECT COUNT(*) as total FROM [orders] o LEFT JOIN [user] u ON o.user_id = u.id LEFT JOIN [clothing] c ON o.clothing_id = c.id ${whereStr}`,
+      params
+    );
+    const listParams = [...params,
+      { name: 'offset', type: sql.Int, value: offset },
+      { name: 'pageSize', type: sql.Int, value: pageSize }
+    ];
+    const result = await dbQuery(
+      `SELECT o.*, u.nickname, u.phone as user_phone, c.name as clothing_name FROM [orders] o LEFT JOIN [user] u ON o.user_id = u.id LEFT JOIN [clothing] c ON o.clothing_id = c.id ${whereStr} ORDER BY o.created_at DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`,
+      listParams
+    );
+    success(res, { list: result.recordset, total: countResult.recordset[0].total, page, page_size: pageSize });
   } catch (error) {
     next(error);
   }

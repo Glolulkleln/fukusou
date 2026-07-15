@@ -45,5 +45,10 @@
         </view>
       </view>
     </view>
+
+    <view class="list-footer" wx:if="{{orderList.length > 0}}">
+      <text wx:if="{{hasMore}}">上拉加载更多</text>
+      <text wx:else>没有更多订单了</text>
+    </view>
   </view>
 </view>
