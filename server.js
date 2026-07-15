@@ -115,10 +115,47 @@ const config = {
 
 let pool;
 
+// 自动确保 admin（管理员）表结构正确，并兼容历史数据 / 空库
+async function ensureAdminTable() {
+  try {
+    await dbQuery(`IF OBJECT_ID('[admin]', 'U') IS NULL
+      CREATE TABLE [admin] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [username] NVARCHAR(50) NOT NULL UNIQUE,
+        [password_hash] NVARCHAR(200) NULL,
+        [role] TINYINT DEFAULT 1,
+        [phone] NVARCHAR(50) NULL,
+        [status] TINYINT DEFAULT 1,
+        [created_at] DATETIME DEFAULT GETDATE()
+      );`);
+    // 兼容旧表：补充 role 列
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[admin]') AND name = 'role')
+      ALTER TABLE [admin] ADD [role] TINYINT DEFAULT 1;`);
+    // 历史管理员统一置为超级管理员（兼容未设置角色的旧数据）
+    await dbQuery(`UPDATE [admin] SET role = 1 WHERE role IS NULL;`);
+    // 若没有任何管理员，创建默认超级管理员 admin / admin123
+    const cnt = await dbQuery('SELECT COUNT(*) as c FROM [admin]');
+    if (cnt.recordset[0].c === 0) {
+      await dbQuery(
+        'INSERT INTO [admin] (username, password_hash, role, status) VALUES (@u, @p, 1, 1)',
+        [
+          { name: 'u', type: sql.NVarChar, value: 'admin' },
+          { name: 'p', type: sql.NVarChar, value: hashPassword('admin123') }
+        ]
+      );
+      console.log('已创建默认超级管理员 admin / admin123');
+    }
+    console.log('admin table ensured');
+  } catch (error) {
+    console.error('ensureAdminTable error:', error.message);
+  }
+}
+
 async function initPool() {
   try {
     pool = await sql.connect(config);
     console.log('Database connection pool initialized successfully');
+    await ensureAdminTable();
     await ensureRemindTable();
     await ensureDepositTable();
     await ensureClothingImagesColumn();
