@@ -31,6 +31,16 @@
         <text class="copy-btn">复制</text>
       </view>
     </view>
+    <view class="logistics-tracks" wx:if="{{logistics.tracks.length > 0}}">
+      <view class="logistics-track {{index === 0 ? 'latest' : ''}}" wx:for="{{logistics.tracks}}" wx:key="index">
+        <view class="track-dot"></view>
+        <view class="track-body">
+          <view class="track-text">{{item.text}}</view>
+          <view class="track-time">{{item.time}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="logistics-empty" wx:elif="{{logistics}}">暂无物流轨迹</view>
   </view>
 
   <view class="info-card">

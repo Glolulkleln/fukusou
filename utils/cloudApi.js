@@ -49,6 +49,10 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     url = '/api/config/' + params.key;
     data = {};
   }
+  if (action === 'getLogistics' && (params.orderNo || params.order_no)) {
+    url = '/api/orders/' + (params.orderNo || params.order_no) + '/logistics';
+    data = {};
+  }
   if (action === 'getAddressDetail' && (params.id || params.addressId)) {
     url = '/api/addresses/' + (params.id || params.addressId);
     data = {};

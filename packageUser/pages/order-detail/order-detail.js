@@ -4,6 +4,7 @@ Page({
   data: {
     orderDetail: null,
     timeline: [],
+    logistics: null,
     showPayPopup: false,
     payMethod: 'wechat',
     isPaying: false
@@ -12,6 +13,16 @@ Page({
   onLoad(options) {
     const orderNo = options.order_no;
     this.getOrderDetail(orderNo);
+    this.getLogistics(orderNo);
+  },
+
+  async getLogistics(orderNo) {
+    try {
+      const res = await callCloudApi('getLogistics', { orderNo });
+      this.setData({ logistics: res || null });
+    } catch (err) {
+      console.error('获取物流失败:', err);
+    }
   },
 
   async getOrderDetail(orderNo) {

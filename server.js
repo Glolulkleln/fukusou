@@ -124,6 +124,7 @@ async function initPool() {
     await ensureClothingImagesColumn();
     await ensureSiteConfigTable();
     await ensureUserSessionKeyColumn();
+    await ensureOrderLogisticsColumns();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
@@ -205,6 +206,19 @@ async function ensureUserSessionKeyColumn() {
     console.log('user.session_key column ensured');
   } catch (error) {
     console.error('ensureUserSessionKeyColumn error:', error.message);
+  }
+}
+
+// 自动确保 orders 物流字段存在（express_company / shipped_at）
+async function ensureOrderLogisticsColumns() {
+  try {
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[orders]') AND name = 'express_company')
+      ALTER TABLE [orders] ADD [express_company] NVARCHAR(50) NULL;`);
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[orders]') AND name = 'shipped_at')
+      ALTER TABLE [orders] ADD [shipped_at] DATETIME NULL;`);
+    console.log('orders logistics columns ensured');
+  } catch (error) {
+    console.error('ensureOrderLogisticsColumns error:', error.message);
   }
 }
 
@@ -332,6 +346,24 @@ function userAuth(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    next();
+  } catch (error) {
+    return fail(res, 'Token 无效或已过期', 401);
+  }
+}
+
+// 兼容用户或管理员 Token 的鉴权（物流查询等需双方可访问的接口）
+function userOrAdminAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return fail(res, '未登录或登录已过期', 401);
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.admin_id) req.admin = decoded;
+    if (decoded.user_id) req.user = decoded;
+    if (!req.admin && !req.user) return fail(res, 'Token 无效', 401);
     next();
   } catch (error) {
     return fail(res, 'Token 无效或已过期', 401);
@@ -1636,7 +1668,7 @@ app.put('/api/admin/orders/:order_no/ship', adminAuth, async (req, res, next) =>
   const transaction = new sql.Transaction(pool);
   try {
     const orderNo = req.params.order_no;
-    const { express_no } = req.body;
+    const { express_no, express_company } = req.body;
 
     if (!express_no) {
       return fail(res, '快递单号不能为空', 400);
@@ -1665,8 +1697,9 @@ app.put('/api/admin/orders/:order_no/ship', adminAuth, async (req, res, next) =>
     await updateRequest
       .input('order_no', sql.NVarChar, orderNo)
       .input('express_no', sql.NVarChar, express_no)
+      .input('express_company', sql.NVarChar, express_company || '校园配送')
       .input('status', sql.TinyInt, 2)
-      .query('UPDATE [orders] SET status = @status, express_no = @express_no WHERE order_no = @order_no');
+      .query('UPDATE [orders] SET status = @status, express_no = @express_no, express_company = @express_company, shipped_at = GETDATE() WHERE order_no = @order_no');
 
     await transaction.commit();
     success(res);
@@ -1945,6 +1978,58 @@ app.post('/api/admin/deposit/deduct', adminAuth, roleGuard(1), async (req, res, 
     success(res, null, '已记录扣款，剩余退款待审核');
   } catch (error) {
     try { await transaction.rollback(); } catch (e) {}
+    next(error);
+  }
+});
+
+// ==================== 物流跟踪 ====================
+// 查询订单物流轨迹（用户本人或管理员可查）
+app.get('/api/orders/:order_no/logistics', userOrAdminAuth, async (req, res, next) => {
+  try {
+    const orderNo = req.params.order_no;
+
+    const orderResult = await dbQuery(
+      'SELECT order_no, user_id, status, express_no, express_company, shipped_at, created_at, rent_end_time FROM [orders] WHERE order_no = @order_no',
+      [{ name: 'order_no', type: sql.NVarChar, value: orderNo }]
+    );
+    if (orderResult.recordset.length === 0) {
+      return fail(res, '订单不存在', 404);
+    }
+    const order = orderResult.recordset[0];
+
+    // 鉴权：管理员或订单本人
+    const isAdmin = req.admin && req.admin.admin_id;
+    const isOwner = req.user && req.user.user_id === order.user_id;
+    if (!isAdmin && !isOwner) {
+      return fail(res, '无权查看该订单物流', 403);
+    }
+
+    const tracks = [];
+    if (order.express_no) {
+      const company = order.express_company || '校园配送';
+      const baseTime = order.shipped_at || order.created_at;
+      const fmt = (d) => d ? new Date(d).toISOString().replace('T', ' ').slice(0, 19) : '';
+
+      tracks.push({ time: fmt(order.shipped_at || baseTime), text: `【${company}】已揽收，运单号 ${order.express_no}` });
+      if (order.status >= 2) {
+        tracks.push({ time: fmt(new Date(new Date(baseTime).getTime() + 3600 * 1000 * 12)), text: '快件运输中，已发往目的地校园驿站' });
+      }
+      if (order.status >= 3) {
+        tracks.push({ time: fmt(order.rent_end_time), text: '快件已送达，请按时归还并完成核验' });
+      }
+      if (order.status >= 4) {
+        tracks.push({ time: fmt(order.rent_end_time), text: '订单已完成，物流闭环' });
+      }
+    }
+
+    success(res, {
+      order_no: order.order_no,
+      express_no: order.express_no || '',
+      express_company: order.express_company || '',
+      status: order.status,
+      tracks: tracks.reverse() // 最新轨迹在顶部
+    });
+  } catch (error) {
     next(error);
   }
 });

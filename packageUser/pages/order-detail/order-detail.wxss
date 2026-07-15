@@ -124,6 +124,62 @@ page {
   border-radius: 20rpx;
 }
 
+.logistics-tracks {
+  margin-top: 24rpx;
+  border-top: 1rpx solid rgba(255,255,255,0.15);
+  padding-top: 20rpx;
+}
+
+.logistics-track {
+  display: flex;
+  align-items: flex-start;
+  padding: 10rpx 0;
+}
+
+.track-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background-color: #888888;
+  margin-top: 10rpx;
+  margin-right: 18rpx;
+  flex-shrink: 0;
+}
+
+.logistics-track.latest .track-dot {
+  background-color: #ffd700;
+  box-shadow: 0 0 0 6rpx rgba(255,215,0,0.25);
+}
+
+.track-body {
+  flex: 1;
+}
+
+.track-text {
+  font-size: 26rpx;
+  color: #dddddd;
+  line-height: 1.5;
+}
+
+.logistics-track.latest .track-text {
+  color: #ffd700;
+  font-weight: 500;
+}
+
+.track-time {
+  font-size: 22rpx;
+  color: #999999;
+  margin-top: 4rpx;
+}
+
+.logistics-empty {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid rgba(255,255,255,0.15);
+  font-size: 24rpx;
+  color: #999999;
+}
+
 .info-card {
   background-color: #ffffff;
   margin: 20rpx 20rpx 0 20rpx;
