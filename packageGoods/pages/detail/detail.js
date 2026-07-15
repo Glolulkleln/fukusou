@@ -3,12 +3,15 @@ const { callCloudApi, mapClothing, mapReviewList, getAccessibleImageUrl, getAcce
 Page({
   data: {
     clothing: null,
+    galleryImages: [],
     specs: [],
     selectedSpec: null,
     reviews: [],
     isFavorite: false,
     rentDays: 3,
-    rentDayOptions: [1, 3, 7, 15, 30]
+    rentDayOptions: [1, 3, 7, 15, 30],
+    rentalNotice: '',
+    rentalNoticeLines: []
   },
 
   onLoad(options) {
@@ -16,6 +19,7 @@ Page({
     this.getClothingDetail(id);
     this.getReviews(id);
     this.checkFavorite(id);
+    this.getRentalNotice();
   },
 
   async getClothingDetail(id) {
@@ -32,13 +36,39 @@ Page({
         console.error('规格解析失败:', e);
       }
 
+      // 多图展示：主图 + 附加图（去重），统一解析可访问地址
+      let extraImages = [];
+      try {
+        extraImages = JSON.parse(clothing.images || '[]');
+      } catch (e) {
+        extraImages = [];
+      }
+      const rawGallery = [clothing.main_image, ...(extraImages || [])].filter(Boolean);
+      // 去重
+      const uniqueGallery = [];
+      rawGallery.forEach(u => { if (uniqueGallery.indexOf(u) === -1) uniqueGallery.push(u); });
+      const urlMap = await getAccessibleImageUrls(uniqueGallery);
+      const galleryImages = uniqueGallery.map(u => urlMap[u] || u);
+
       this.setData({
         clothing,
-        specs: parsedSpecs
+        specs: parsedSpecs,
+        galleryImages
       });
       this.saveRecentView(clothing);
     } catch (err) {
       console.error(err);
+    }
+  },
+
+  async getRentalNotice() {
+    try {
+      const res = await callCloudApi('getConfig', { key: 'rental_notice' });
+      const value = (res && res.value) || '';
+      const lines = value ? value.split('\n').filter(t => t.trim().length > 0) : [];
+      this.setData({ rentalNotice: value, rentalNoticeLines: lines });
+    } catch (err) {
+      console.error('获取租赁须知失败:', err);
     }
   },
 
@@ -82,11 +112,13 @@ Page({
     }
   },
 
-  previewImage() {
-    if (!this.data.clothing || !this.data.clothing.main_image) return;
+  previewImage(e) {
+    const urls = this.data.galleryImages.length ? this.data.galleryImages : [this.data.clothing.main_image];
+    const current = (e && e.currentTarget.dataset.src) || urls[0];
+    if (!current) return;
     wx.previewImage({
-      current: this.data.clothing.main_image,
-      urls: [this.data.clothing.main_image]
+      current,
+      urls
     });
   },
 

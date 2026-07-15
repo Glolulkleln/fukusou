@@ -1,5 +1,9 @@
 <view class="container" wx:if="{{clothing}}">
-  <image class="main-image" src="{{clothing.main_image}}" mode="aspectFill" bindtap="previewImage"></image>
+  <swiper class="gallery" indicator-dots="true" autoplay="false" circular="true" indicator-active-color="#ffffff">
+    <swiper-item wx:for="{{galleryImages}}" wx:key="*this">
+      <image class="gallery-img" src="{{item}}" mode="aspectFill" data-src="{{item}}" bindtap="previewImage"></image>
+    </swiper-item>
+  </swiper>
 
   <view class="info-box">
     <view class="price-row">
@@ -52,6 +56,13 @@
   </view>
 
   <review-list reviews="{{reviews}}"></review-list>
+
+  <view class="notice-box" wx:if="{{rentalNotice}}">
+    <view class="box-title">租赁须知</view>
+    <view class="notice-content">
+      <text wx:for="{{rentalNoticeLines}}" wx:key="index" class="notice-line">{{item}}</text>
+    </view>
+  </view>
 
   <view class="bottom-action">
     <view class="fav-btn" bindtap="toggleFavorite">

@@ -74,6 +74,18 @@
             <el-icon><collection /></el-icon>
             <span>分类管理</span>
           </el-menu-item>
+          <el-menu-item index="deposit">
+            <el-icon><wallet /></el-icon>
+            <span>押金与财务</span>
+          </el-menu-item>
+          <el-menu-item index="admins" v-if="adminInfo.role === 1">
+            <el-icon><ticket /></el-icon>
+            <span>管理员与角色</span>
+          </el-menu-item>
+          <el-menu-item index="config">
+            <el-icon><setting /></el-icon>
+            <span>站点配置</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       
@@ -286,6 +298,136 @@
             </el-card>
           </div>
 
+          <div v-if="activeMenu === 'deposit'">
+            <el-row :gutter="20" style="margin-bottom: 20px;">
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>累计押金收入</template>
+                  <div class="data-num">￥{{ depositStats.paid }}</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>已退还押金</template>
+                  <div class="data-num">￥{{ depositStats.refunded }}</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>损坏扣除金额</template>
+                  <div class="data-num">￥{{ depositStats.deducted }}</div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="main-card" shadow="hover">
+                  <template #header>待审核退款</template>
+                  <div class="data-num">￥{{ depositStats.pendingRefund }}</div>
+                </el-card>
+              </el-col>
+            </el-row>
+
+            <el-card class="main-card">
+              <div style="margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <el-select v-model="depositFilter.type" placeholder="流水类型" clearable style="width: 140px;" @change="getDepositFlows">
+                  <el-option label="押金支付" :value="1"></el-option>
+                  <el-option label="退还押金" :value="2"></el-option>
+                  <el-option label="损坏扣除" :value="3"></el-option>
+                </el-select>
+                <el-select v-model="depositFilter.status" placeholder="处理状态" clearable style="width: 140px;" @change="getDepositFlows">
+                  <el-option label="待审核" :value="0"></el-option>
+                  <el-option label="已处理" :value="1"></el-option>
+                </el-select>
+                <el-input v-model="depositFilter.keyword" placeholder="订单号 / 用户昵称" style="width: 200px;" clearable @keyup.enter="getDepositFlows"></el-input>
+                <el-button type="primary" @click="getDepositFlows">查询</el-button>
+                <el-button @click="resetDepositFilter">重置</el-button>
+                <el-button type="danger" v-if="adminInfo.role === 1" @click="deductDialogVisible = true">损坏扣款</el-button>
+              </div>
+
+              <el-table :data="depositFlows" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="70"></el-table-column>
+                <el-table-column prop="order_no" label="订单号" width="200"></el-table-column>
+                <el-table-column prop="nickname" label="用户" width="120"></el-table-column>
+                <el-table-column prop="clothing_name" label="服装款型"></el-table-column>
+                <el-table-column label="类型" width="100">
+                  <template #default="scope">
+                    <el-tag :type="flowTypeTag(scope.row.flow_type)">{{ flowTypeText(scope.row.flow_type) }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="金额(元)" width="110">
+                  <template #default="scope">￥{{ scope.row.amount }}</template>
+                </el-table-column>
+                <el-table-column label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.status === 1 ? 'success' : 'warning'">
+                      {{ scope.row.status === 1 ? '已处理' : '待审核' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="remark" label="备注"></el-table-column>
+                <el-table-column prop="created_at" label="时间" width="180"></el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button v-if="scope.row.status === 0 && adminInfo.role === 1" size="small" type="primary" @click="approveDeposit(scope.row.id)">审核通过</el-button>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+
+              <el-pagination style="margin-top: 20px; justify-content: flex-end;"
+                :current-page="depositFilter.page" :page-size="depositFilter.page_size"
+                :total="depositTotal" layout="total, prev, pager, next"
+                @current-change="handleDepositPageChange"></el-pagination>
+            </el-card>
+          </div>
+
+          <div v-if="activeMenu === 'admins'">
+            <el-card class="main-card">
+              <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+                <el-button type="black" style="background-color:#001529;color:#fff;" @click="openAddAdminDialog">新增管理员账号</el-button>
+                <el-button @click="getAdminList">重载刷新列表</el-button>
+              </div>
+              <el-table :data="adminList" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="70"></el-table-column>
+                <el-table-column prop="username" label="登录账号"></el-table-column>
+                <el-table-column label="角色" width="140">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.role === 1 ? 'danger' : 'info'">
+                      {{ scope.row.role === 1 ? '超级管理员' : '运营人员' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="phone" label="手机号" width="140"></el-table-column>
+                <el-table-column label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
+                      {{ scope.row.status === 1 ? '正常' : '已禁用' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="管理操作" width="340">
+                  <template #default="scope">
+                    <el-button v-if="scope.row.role !== 1 && adminInfo.id !== scope.row.id" size="small" @click="changeAdminRole(scope.row, 1)">设为超管</el-button>
+                    <el-button v-if="scope.row.role !== 2 && adminInfo.id !== scope.row.id" size="small" @click="changeAdminRole(scope.row, 2)">降为运营</el-button>
+                    <el-button size="small" @click="resetAdminPassword(scope.row)">重置密码</el-button>
+                    <el-button v-if="scope.row.id !== adminInfo.id" size="small" :type="scope.row.status === 1 ? 'danger' : 'success'" @click="toggleAdminStatus(scope.row)">
+                      {{ scope.row.status === 1 ? '禁用' : '启用' }}
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+
+          <div v-if="activeMenu === 'config'">
+            <el-card class="main-card">
+              <div class="box-title" style="font-size: 16px; margin-bottom: 16px;">租赁须知配置</div>
+              <el-input v-model="rentalNoticeText" type="textarea" :rows="10" placeholder="每行一条租赁须知，将展示在服装详情页"></el-input>
+              <div style="margin-top: 16px;">
+                <el-button type="primary" :loading="configSaving" @click="saveRentalNotice">保存配置</el-button>
+              </div>
+            </el-card>
+          </div>
+
         </el-main>
       </el-container>
     </el-container>
@@ -305,6 +447,17 @@
             <img v-if="form.main_image" :src="form.main_image" class="uploaded-preview" />
             <el-icon v-else class="avatar-uploader-icon"><plus /></el-icon>
           </el-upload>
+        </el-form-item>
+        <el-form-item label="服装多图">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <div v-for="(img, idx) in form.images" :key="idx" style="position: relative;">
+              <img :src="img" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;" />
+              <el-button size="small" type="danger" circle style="position: absolute; top: -10px; right: -10px; padding: 2px;" @click="removeFormImage(idx)">×</el-button>
+            </div>
+            <el-upload class="avatar-uploader" :action="uploadApiUrl" :headers="uploadHeaders" :show-file-list="false" :on-success="handleFormImageSuccess">
+              <el-icon class="avatar-uploader-icon"><plus /></el-icon>
+            </el-upload>
+          </div>
         </el-form-item>
         <el-form-item label="单日租金">
           <el-input-number v-model="form.rent_price" :min="0"></el-input-number>
@@ -379,6 +532,52 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="deductDialogVisible" title="损坏扣款（押金抵扣）" width="460px">
+      <el-form :model="deductForm" label-width="90px">
+        <el-form-item label="订单号">
+          <el-input v-model="deductForm.order_no" placeholder="请输入租赁订单号"></el-input>
+        </el-form-item>
+        <el-form-item label="扣款金额">
+          <el-input-number v-model="deductForm.amount" :min="0" :precision="2" :step="10"></el-input-number>
+        </el-form-item>
+        <el-form-item label="扣款说明">
+          <el-input v-model="deductForm.remark" type="textarea" :rows="3" placeholder="如：袖口污渍、拉链损坏等"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="deductDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="deductDeposit">确认扣款</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="adminDialogVisible" title="新增管理员账号" width="420px">
+      <el-form :model="adminForm" label-width="80px">
+        <el-form-item label="登录账号">
+          <el-input v-model="adminForm.username" placeholder="管理端登录账号"></el-input>
+        </el-form-item>
+        <el-form-item label="初始密码">
+          <el-input v-model="adminForm.password" placeholder="初始登录密码"></el-input>
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="adminForm.role" placeholder="请选择角色">
+            <el-option label="超级管理员" :value="1"></el-option>
+            <el-option label="运营人员" :value="2"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="adminForm.phone" placeholder="选填"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="adminDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitAdminForm">确认创建</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </div>
 
   <script>
@@ -405,12 +604,29 @@
         const userList = ref([]);
         const categoryList = ref([]);
         const categoryDialogVisible = ref(false);
+
+        // 押金与财务
+        const depositStats = ref({ paid: 0, refunded: 0, deducted: 0, pendingRefund: 0 });
+        const depositFlows = ref([]);
+        const depositTotal = ref(0);
+        const depositFilter = ref({ page: 1, page_size: 20, type: '', status: '', keyword: '' });
+        const deductDialogVisible = ref(false);
+        const deductForm = ref({ order_no: '', amount: 0, remark: '' });
+
+        // 管理员与角色
+        const adminList = ref([]);
+        const adminDialogVisible = ref(false);
+        const adminForm = ref({ username: '', password: '', role: 2, phone: '' });
+
+        // 站点配置（租赁须知）
+        const rentalNoticeText = ref('');
+        const configSaving = ref(false);
         const categoryForm = ref({ id: null, name: '', sort_order: 0 });
 
         const dialogVisible = ref(false);
         const bannerDialogVisible = ref(false);
 
-        const form = ref({ id: null, name: '', category_id: null, main_image: '', rent_price: 0, deposit_amount: 0, specs: [], status: 1 });
+        const form = ref({ id: null, name: '', category_id: null, main_image: '', images: [], rent_price: 0, deposit_amount: 0, specs: [], status: 1 });
         const bannerForm = ref({ title: '', image_url: '', target_link: '', sort_order: 1, status: 1 });
 
         // 统一请求封装：自动携带鉴权头，处理 401
@@ -477,6 +693,9 @@
           if (index === 'orders') getOrderList();
           if (index === 'users') getUserList();
           if (index === 'categories') getCategoryList();
+          if (index === 'deposit') { getDepositStats(); getDepositFlows(); }
+          if (index === 'admins') getAdminList();
+          if (index === 'config') getRentalNoticeConfig();
         };
 
         const getGlobalCategories = () => {
@@ -569,6 +788,210 @@
             .then(res => { stats.value = (res && res.data) || stats.value; });
         };
 
+        // ============ 押金与财务管理 ============
+        const getDepositStats = () => {
+          request('/api/admin/deposit/stats')
+            .then(res => { depositStats.value = (res && res.data) || depositStats.value; });
+        };
+
+        const getDepositFlows = () => {
+          const f = depositFilter.value;
+          const params = [];
+          if (f.type !== '' && f.type !== null && f.type !== undefined) params.push('type=' + encodeURIComponent(f.type));
+          if (f.status !== '' && f.status !== null && f.status !== undefined) params.push('status=' + encodeURIComponent(f.status));
+          if (f.keyword) params.push('keyword=' + encodeURIComponent(f.keyword));
+          params.push('page=' + f.page);
+          params.push('page_size=' + f.page_size);
+          request('/api/admin/deposit/flows?' + params.join('&'))
+            .then(res => {
+              const data = (res && res.data) || {};
+              depositFlows.value = data.list || [];
+              depositTotal.value = data.total || 0;
+            });
+        };
+
+        const resetDepositFilter = () => {
+          depositFilter.value = { page: 1, page_size: 20, type: '', status: '', keyword: '' };
+          getDepositFlows();
+        };
+
+        const handleDepositPageChange = (page) => {
+          depositFilter.value.page = page;
+          getDepositFlows();
+        };
+
+        const approveDeposit = (id) => {
+          ElementPlus.ElMessageBox.confirm('确认审核通过该条押金流水（退还/扣除）？', '提示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/deposit/${id}/approve`, { method: 'POST' })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('审核通过');
+                    getDepositFlows();
+                    getDepositStats();
+                  } else {
+                    ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        const deductDeposit = () => {
+          const f = deductForm.value;
+          if (!f.order_no || !f.amount || f.amount <= 0) {
+            ElementPlus.ElMessage.warning('请填写订单号与有效扣款金额');
+            return;
+          }
+          request('/api/admin/deposit/deduct', {
+            method: 'POST',
+            body: JSON.stringify(f)
+          })
+            .then(res => {
+              if (res && res.code === 200) {
+                ElementPlus.ElMessage.success('扣款已记录，剩余押金待审核退款');
+                deductDialogVisible.value = false;
+                deductForm.value = { order_no: '', amount: 0, remark: '' };
+                getDepositFlows();
+                getDepositStats();
+              } else {
+                ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+              }
+            })
+            .catch(() => {});
+        };
+
+        const flowTypeText = (t) => {
+          if (t === 1) return '押金支付';
+          if (t === 2) return '退还押金';
+          if (t === 3) return '损坏扣除';
+          return '未知';
+        };
+
+        const flowTypeTag = (t) => {
+          if (t === 1) return 'warning';
+          if (t === 2) return 'primary';
+          if (t === 3) return 'danger';
+          return 'info';
+        };
+
+        // ============ 管理员与角色管理（仅超级管理员） ============
+        const getAdminList = () => {
+          request('/api/admin/admins')
+            .then(res => { adminList.value = (res && res.data) || []; });
+        };
+
+        const openAddAdminDialog = () => {
+          adminForm.value = { username: '', password: '', role: 2, phone: '' };
+          adminDialogVisible.value = true;
+        };
+
+        const submitAdminForm = () => {
+          const f = adminForm.value;
+          if (!f.username || !f.password) {
+            ElementPlus.ElMessage.warning('请填写账号与初始密码');
+            return;
+          }
+          request('/api/admin/admins', {
+            method: 'POST',
+            body: JSON.stringify(f)
+          })
+            .then(res => {
+              if (res && res.code === 200) {
+                ElementPlus.ElMessage.success('管理员创建成功');
+                adminDialogVisible.value = false;
+                getAdminList();
+              } else {
+                ElementPlus.ElMessage.error('创建失败: ' + (res && res.message || '未知错误'));
+              }
+            })
+            .catch(() => {});
+        };
+
+        const changeAdminRole = (row, role) => {
+          const label = role === 1 ? '超级管理员' : '运营人员';
+          ElementPlus.ElMessageBox.confirm(`确认将 ${row.username} 设为「${label}」？`, '提示', { type: 'warning' })
+            .then(() => {
+              request(`/api/admin/admins/${row.id}/role`, {
+                method: 'PUT',
+                body: JSON.stringify({ role })
+              })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('角色已更新');
+                    getAdminList();
+                  } else {
+                    ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        const toggleAdminStatus = (row) => {
+          const next = row.status === 1 ? 0 : 1;
+          request(`/api/admin/admins/${row.id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: next })
+          })
+            .then(res => {
+              if (res && res.code === 200) {
+                ElementPlus.ElMessage.success(next === 1 ? '已启用' : '已禁用');
+                getAdminList();
+              } else {
+                ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+              }
+            })
+            .catch(() => {});
+        };
+
+        const resetAdminPassword = (row) => {
+          ElementPlus.ElMessageBox.prompt('请输入新的登录密码', '重置密码 - ' + row.username, {
+            inputPattern: /\S+/,
+            inputErrorMessage: '密码不能为空'
+          })
+            .then(({ value }) => {
+              request(`/api/admin/admins/${row.id}/password`, {
+                method: 'PUT',
+                body: JSON.stringify({ password: value })
+              })
+                .then(res => {
+                  if (res && res.code === 200) {
+                    ElementPlus.ElMessage.success('密码已重置');
+                  } else {
+                    ElementPlus.ElMessage.error('操作失败: ' + (res && res.message || '未知错误'));
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        };
+
+        // ============ 站点配置（租赁须知） ============
+        const getRentalNoticeConfig = () => {
+          request('/api/config/rental_notice')
+            .then(res => { rentalNoticeText.value = (res && res.data && res.data.value) || ''; });
+        };
+
+        const saveRentalNotice = () => {
+          configSaving.value = true;
+          request('/api/admin/config/rental_notice', {
+            method: 'PUT',
+            body: JSON.stringify({ value: rentalNoticeText.value })
+          })
+            .then(res => {
+              configSaving.value = false;
+              if (res && res.code === 200) {
+                ElementPlus.ElMessage.success('租赁须知已保存');
+              } else {
+                ElementPlus.ElMessage.error('保存失败: ' + (res && res.message || '未知错误'));
+              }
+            })
+            .catch(() => { configSaving.value = false; });
+        };
+
         const getClothingList = () => {
           request('/api/admin/clothing')
             .then(res => { clothingList.value = (res && res.data) || []; });
@@ -647,8 +1070,22 @@
           }
         };
 
+        const handleFormImageSuccess = (response) => {
+          if (response && response.code === 200) {
+            if (!Array.isArray(form.value.images)) form.value.images = [];
+            form.value.images.push(response.data);
+            ElementPlus.ElMessage.success('图片已添加');
+          } else {
+            ElementPlus.ElMessage.error('上传失败: ' + (response && response.message || '未知错误'));
+          }
+        };
+
+        const removeFormImage = (idx) => {
+          form.value.images.splice(idx, 1);
+        };
+
         const openAddDialog = () => {
-          form.value = { id: null, name: '', category_id: null, main_image: '', rent_price: 0, deposit_amount: 0, specs: [], status: 1 };
+          form.value = { id: null, name: '', category_id: null, main_image: '', images: [], rent_price: 0, deposit_amount: 0, specs: [], status: 1 };
           dialogVisible.value = true;
         };
 
@@ -664,7 +1101,13 @@
           } catch(e) {
             parsedSpecs = [];
           }
-          form.value = { ...row, specs: parsedSpecs };
+          let parsedImages = [];
+          try {
+            parsedImages = JSON.parse(row.images || '[]');
+          } catch(e) {
+            parsedImages = [];
+          }
+          form.value = { ...row, specs: parsedSpecs, images: parsedImages };
           dialogVisible.value = true;
         };
 
@@ -794,7 +1237,12 @@
           userList, categoryList, categoryDialogVisible, categoryForm,
           handleLogin, handleLogout, handleMenuSelect, getClothingList, openAddDialog, openEditDialog, openAddBannerDialog, parseImages, deleteReview, deleteBanner,
           submitForm, submitBannerForm, deleteClothing, updateOrderStatus, shipOrder, getStatusText, getStatusTag, handleUploadSuccess, handleBannerUploadSuccess,
-          getUserList, toggleUserStatus, getCategoryList, openAddCategoryDialog, openEditCategoryDialog, deleteCategory, submitCategoryForm
+          getUserList, toggleUserStatus, getCategoryList, openAddCategoryDialog, openEditCategoryDialog, deleteCategory, submitCategoryForm,
+          depositStats, depositFlows, depositTotal, depositFilter, deductDialogVisible, deductForm,
+          getDepositStats, getDepositFlows, resetDepositFilter, handleDepositPageChange, approveDeposit, deductDeposit, flowTypeText, flowTypeTag,
+          adminList, adminDialogVisible, adminForm,
+          getAdminList, openAddAdminDialog, submitAdminForm, changeAdminRole, toggleAdminStatus, resetAdminPassword,
+          rentalNoticeText, configSaving, getRentalNoticeConfig, saveRentalNotice
         };
       }
     });
@@ -809,7 +1257,9 @@
     app.component('comment-icon', ElementPlusIconsVue.Comment);
     app.component('user', ElementPlusIconsVue.User);
     app.component('collection', ElementPlusIconsVue.Collection);
+    app.component('wallet', ElementPlusIconsVue.Wallet);
     app.component('ticket', ElementPlusIconsVue.Ticket);
+    app.component('setting', ElementPlusIconsVue.Setting);
     app.mount('#app');
   </script>
 </body>

@@ -120,6 +120,9 @@ async function initPool() {
     pool = await sql.connect(config);
     console.log('Database connection pool initialized successfully');
     await ensureRemindTable();
+    await ensureDepositTable();
+    await ensureClothingImagesColumn();
+    await ensureSiteConfigTable();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
@@ -139,6 +142,57 @@ async function ensureRemindTable() {
     console.log('order_remind table ensured');
   } catch (error) {
     console.error('ensureRemindTable error:', error.message);
+  }
+}
+
+// 自动确保 deposit_flow（押金流水）表存在，兼容已有数据库
+async function ensureDepositTable() {
+  try {
+    await dbQuery(`IF OBJECT_ID('[deposit_flow]', 'U') IS NULL
+      CREATE TABLE [deposit_flow] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [order_no] NVARCHAR(50) NOT NULL,
+        [user_id] INT NOT NULL,
+        [amount] DECIMAL(10,2) NOT NULL,
+        [flow_type] TINYINT NOT NULL,
+        [status] TINYINT DEFAULT 0,
+        [remark] NVARCHAR(255),
+        [created_at] DATETIME DEFAULT GETDATE()
+      );`);
+    console.log('deposit_flow table ensured');
+  } catch (error) {
+    console.error('ensureDepositTable error:', error.message);
+  }
+}
+
+// 自动确保 clothing.images（多图 JSON 数组）列存在
+async function ensureClothingImagesColumn() {
+  try {
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[clothing]') AND name = 'images')
+      ALTER TABLE [clothing] ADD [images] NVARCHAR(MAX) NULL;`);
+    console.log('clothing.images column ensured');
+  } catch (error) {
+    console.error('ensureClothingImagesColumn error:', error.message);
+  }
+}
+
+// 站点配置表（key-value），用于存放租赁须知等可运营配置
+async function ensureSiteConfigTable() {
+  try {
+    await dbQuery(`IF OBJECT_ID('[site_config]', 'U') IS NULL
+      CREATE TABLE [site_config] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [config_key] NVARCHAR(50) NOT NULL UNIQUE,
+        [config_value] NVARCHAR(MAX) NULL,
+        [updated_at] DATETIME DEFAULT GETDATE()
+      );`);
+    // 初始化租赁须知默认值
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM [site_config] WHERE config_key = 'rental_notice')
+      INSERT INTO [site_config] (config_key, config_value) VALUES ('rental_notice',
+        N'1. 租赁前请确认尺码与档期，下单即视为同意本须知；\n2. 押金将在确认归还且无损坏后原路退还；\n3. 服装请妥善保管，污渍 / 破损 / 遗失将按价赔偿并从押金中扣除；\n4. 逾期未归还将按日收取违约金，并影响信用分；\n5. 支持提前归还，租金按实际租期结算。');`);
+    console.log('site_config table ensured');
+  } catch (error) {
+    console.error('ensureSiteConfigTable error:', error.message);
   }
 }
 
@@ -225,6 +279,17 @@ function adminAuth(req, res, next) {
   } catch (error) {
     return fail(res, 'Token 无效或已过期', 401);
   }
+}
+
+// 角色守卫：allowedRoles 为允许访问的 role 数组，例如 [1] 表示仅超级管理员
+// role 约定：1 = 超级管理员（平台管理员），2 = 运营人员（日常运营，无财务/管理员权限）
+function roleGuard(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.admin || !allowedRoles.includes(req.admin.role)) {
+      return fail(res, '权限不足，需要更高权限的管理员', 403);
+    }
+    next();
+  };
 }
 
 function userAuth(req, res, next) {
@@ -348,6 +413,39 @@ app.get('/api/clothing', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// ==================== 站点配置（公开读取 / 管理员写入） ====================
+// 公开读取某个配置项
+app.get('/api/config/:key', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const result = await dbQuery(
+      'SELECT config_value FROM [site_config] WHERE config_key = @key',
+      [{ name: 'key', type: sql.NVarChar, value: key }]
+    );
+    const value = result.recordset.length > 0 ? result.recordset[0].config_value : '';
+    success(res, { key, value });
+  } catch (error) { next(error); }
+});
+
+// 管理员更新某个配置项
+app.put('/api/admin/config/:key', adminAuth, async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const { value } = req.body;
+    await dbQuery(
+      `IF EXISTS (SELECT * FROM [site_config] WHERE config_key = @key)
+        UPDATE [site_config] SET config_value = @value, updated_at = GETDATE() WHERE config_key = @key
+       ELSE
+        INSERT INTO [site_config] (config_key, config_value) VALUES (@key, @value)`,
+      [
+        { name: 'key', type: sql.NVarChar, value: key },
+        { name: 'value', type: sql.NVarChar, value: value || '' }
+      ]
+    );
+    success(res, null, '配置已保存');
+  } catch (error) { next(error); }
 });
 
 app.get('/api/clothing/:id', async (req, res, next) => {
@@ -1169,9 +1267,9 @@ app.get('/api/admin/clothing', adminAuth, async (req, res, next) => {
 
 app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
   try {
-    const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock } = req.body;
+    const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images } = req.body;
     await dbQuery(
-      'INSERT INTO [clothing] (name, category_id, main_image, rent_price, deposit_amount, specs, status, stock) VALUES (@name, @category_id, @main_image, @rent_price, @deposit_amount, @specs, @status, @stock)',
+      'INSERT INTO [clothing] (name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images) VALUES (@name, @category_id, @main_image, @rent_price, @deposit_amount, @specs, @status, @stock, @images)',
       [
         { name: 'name', type: sql.NVarChar, value: name },
         { name: 'category_id', type: sql.Int, value: category_id },
@@ -1180,7 +1278,8 @@ app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
         { name: 'deposit_amount', type: sql.Decimal(10,2), value: deposit_amount },
         { name: 'specs', type: sql.NVarChar, value: JSON.stringify(specs) },
         { name: 'status', type: sql.TinyInt, value: status },
-        { name: 'stock', type: sql.Int, value: stock || 0 }
+        { name: 'stock', type: sql.Int, value: stock || 0 },
+        { name: 'images', type: sql.NVarChar, value: JSON.stringify(images || []) }
       ]
     );
     success(res);
@@ -1192,9 +1291,9 @@ app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
 app.put('/api/admin/clothing/:id', adminAuth, async (req, res, next) => {
   try {
     const id = req.params.id;
-    const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock } = req.body;
+    const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images } = req.body;
     await dbQuery(
-      'UPDATE [clothing] SET name = @name, category_id = @category_id, main_image = @main_image, rent_price = @rent_price, deposit_amount = @deposit_amount, specs = @specs, status = @status, stock = @stock WHERE id = @id',
+      'UPDATE [clothing] SET name = @name, category_id = @category_id, main_image = @main_image, rent_price = @rent_price, deposit_amount = @deposit_amount, specs = @specs, status = @status, stock = @stock, images = @images WHERE id = @id',
       [
         { name: 'id', type: sql.Int, value: id },
         { name: 'name', type: sql.NVarChar, value: name },
@@ -1204,7 +1303,8 @@ app.put('/api/admin/clothing/:id', adminAuth, async (req, res, next) => {
         { name: 'deposit_amount', type: sql.Decimal(10,2), value: deposit_amount },
         { name: 'specs', type: sql.NVarChar, value: JSON.stringify(specs) },
         { name: 'status', type: sql.TinyInt, value: status },
-        { name: 'stock', type: sql.Int, value: stock || 0 }
+        { name: 'stock', type: sql.Int, value: stock || 0 },
+        { name: 'images', type: sql.NVarChar, value: JSON.stringify(images || []) }
       ]
     );
     success(res);
@@ -1581,8 +1681,204 @@ app.delete('/api/admin/banners/:id', adminAuth, async (req, res, next) => {
   }
 });
 
+// ==================== 押金与财务管理（运营后台） ====================
+// 押金流水统计：累计押金收入 / 已退还 / 损坏扣除 / 待审核退款
+app.get('/api/admin/deposit/stats', adminAuth, async (req, res, next) => {
+  try {
+    const paid = await dbQuery('SELECT SUM(amount) as t FROM [deposit_flow] WHERE flow_type = 1');
+    const refunded = await dbQuery('SELECT SUM(amount) as t FROM [deposit_flow] WHERE flow_type = 2 AND status = 1');
+    const deducted = await dbQuery('SELECT SUM(amount) as t FROM [deposit_flow] WHERE flow_type = 3 AND status = 1');
+    const pending = await dbQuery('SELECT SUM(amount) as t FROM [deposit_flow] WHERE flow_type = 2 AND status = 0');
+    success(res, {
+      paid: paid.recordset[0].t || 0,
+      refunded: refunded.recordset[0].t || 0,
+      deducted: deducted.recordset[0].t || 0,
+      pendingRefund: pending.recordset[0].t || 0
+    });
+  } catch (error) { next(error); }
+});
+
+// 押金流水列表（对账）：支持类型/状态/关键词筛选与分页
+app.get('/api/admin/deposit/flows', adminAuth, async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.page_size) || 20;
+    const type = req.query.type;
+    const status = req.query.status;
+    const keyword = req.query.keyword || '';
+    const offset = (page - 1) * pageSize;
+
+    const where = [];
+    const params = [];
+    if (type) { where.push('df.flow_type = @type'); params.push({ name: 'type', type: sql.TinyInt, value: parseInt(type, 10) }); }
+    if (status !== undefined && status !== '') { where.push('df.status = @status'); params.push({ name: 'status', type: sql.TinyInt, value: parseInt(status, 10) }); }
+    if (keyword) { where.push('(df.order_no LIKE @kw OR u.nickname LIKE @kw)'); params.push({ name: 'kw', type: sql.NVarChar, value: `%${keyword}%` }); }
+    const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+    const countResult = await dbQuery(
+      `SELECT COUNT(*) as total FROM [deposit_flow] df LEFT JOIN [user] u ON df.user_id = u.id ${whereStr}`,
+      [...params]
+    );
+    const listParams = [...params,
+      { name: 'offset', type: sql.Int, value: offset },
+      { name: 'pageSize', type: sql.Int, value: pageSize }
+    ];
+    const listResult = await dbQuery(
+      `SELECT df.*, u.nickname, c.name as clothing_name
+       FROM [deposit_flow] df
+       LEFT JOIN [user] u ON df.user_id = u.id
+       LEFT JOIN [orders] o ON df.order_no = o.order_no
+       LEFT JOIN [clothing] c ON o.clothing_id = c.id
+       ${whereStr}
+       ORDER BY df.created_at DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY`,
+      listParams
+    );
+    success(res, { list: listResult.recordset, total: countResult.recordset[0].total, page, page_size: pageSize });
+  } catch (error) { next(error); }
+});
+
+// 审核通过某条待处理押金流水（退款/扣除）
+app.post('/api/admin/deposit/:id/approve', adminAuth, roleGuard(1), async (req, res, next) => {
+  const transaction = new sql.Transaction(pool);
+  try {
+    const id = req.params.id;
+    await transaction.begin();
+    const r = await new sql.Request(transaction).input('id', sql.Int, id)
+      .query('SELECT * FROM [deposit_flow] WHERE id = @id');
+    if (r.recordset.length === 0) { await transaction.rollback(); return fail(res, '流水不存在', 404); }
+    if (r.recordset[0].status === 1) { await transaction.rollback(); return fail(res, '该流水已处理', 400); }
+    await new sql.Request(transaction).input('id', sql.Int, id)
+      .query('UPDATE [deposit_flow] SET status = 1 WHERE id = @id');
+    await transaction.commit();
+    success(res);
+  } catch (error) {
+    try { await transaction.rollback(); } catch (e) {}
+    next(error);
+  }
+});
+
+// 损坏扣款：扣除部分押金，剩余金额生成「待审核退款」流水
+app.post('/api/admin/deposit/deduct', adminAuth, roleGuard(1), async (req, res, next) => {
+  const transaction = new sql.Transaction(pool);
+  try {
+    const { order_no, amount, remark } = req.body;
+    const deduct = parseFloat(amount);
+    if (!order_no || !deduct || deduct <= 0) return fail(res, '参数缺失或金额无效', 400);
+    await transaction.begin();
+    const o = await new sql.Request(transaction).input('order_no', sql.NVarChar, order_no)
+      .query('SELECT * FROM [orders] WHERE order_no = @order_no');
+    if (o.recordset.length === 0) { await transaction.rollback(); return fail(res, '订单不存在', 404); }
+    const order = o.recordset[0];
+    if (deduct > parseFloat(order.deposit_amount)) { await transaction.rollback(); return fail(res, '扣款金额不能超过押金', 400); }
+
+    // 扣除记录（type=3，立即生效）
+    await new sql.Request(transaction)
+      .input('order_no', sql.NVarChar, order_no)
+      .input('user_id', sql.Int, order.user_id)
+      .input('amount', sql.Decimal(10, 2), deduct)
+      .input('remark', sql.NVarChar, remark || N'损坏赔偿扣款')
+      .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 3, 1, @remark)');
+
+    // 剩余押金生成待审核退款（type=2，status=0 待管理员审核）
+    const remain = parseFloat(order.deposit_amount) - deduct;
+    if (remain > 0) {
+      await new sql.Request(transaction)
+        .input('order_no', sql.NVarChar, order_no)
+        .input('user_id', sql.Int, order.user_id)
+        .input('amount', sql.Decimal(10, 2), remain)
+        .input('remark', sql.NVarChar, N'损坏扣款后剩余退还（待审核）')
+        .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 2, 0, @remark)');
+    }
+    await transaction.commit();
+    success(res, null, '已记录扣款，剩余退款待审核');
+  } catch (error) {
+    try { await transaction.rollback(); } catch (e) {}
+    next(error);
+  }
+});
+
 app.use((req, res) => {
   fail(res, '接口不存在', 404);
+});
+
+// ==================== 管理员与角色管理（仅超级管理员） ====================
+// 管理员列表
+app.get('/api/admin/admins', adminAuth, roleGuard(1), async (req, res, next) => {
+  try {
+    const result = await dbQuery(
+      'SELECT id, username, role, phone, status, created_at FROM [admin] ORDER BY id ASC'
+    );
+    success(res, result.recordset);
+  } catch (error) { next(error); }
+});
+
+// 新增管理员
+app.post('/api/admin/admins', adminAuth, roleGuard(1), async (req, res, next) => {
+  try {
+    const { username, password, role, phone } = req.body;
+    if (!username || !password) return fail(res, '用户名和密码不能为空', 400);
+    if (![1, 2].includes(parseInt(role, 10))) return fail(res, '角色取值无效（1=超级管理员，2=运营人员）', 400);
+    const exist = await dbQuery('SELECT id FROM [admin] WHERE username = @username',
+      [{ name: 'username', type: sql.NVarChar, value: username }]);
+    if (exist.recordset.length > 0) return fail(res, '该用户名已存在', 400);
+    await dbQuery(
+      'INSERT INTO [admin] (username, password_hash, role, phone, status) VALUES (@username, @password_hash, @role, @phone, 1)',
+      [
+        { name: 'username', type: sql.NVarChar, value: username },
+        { name: 'password_hash', type: sql.NVarChar, value: hashPassword(password) },
+        { name: 'role', type: sql.TinyInt, value: parseInt(role, 10) },
+        { name: 'phone', type: sql.NVarChar, value: phone || null }
+      ]
+    );
+    success(res, null, '管理员创建成功');
+  } catch (error) { next(error); }
+});
+
+// 修改管理员角色
+app.put('/api/admin/admins/:id/role', adminAuth, roleGuard(1), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { role } = req.body;
+    if (![1, 2].includes(parseInt(role, 10))) return fail(res, '角色取值无效', 400);
+    if (id === req.admin.admin_id) return fail(res, '不能修改自己的角色', 400);
+    await dbQuery('UPDATE [admin] SET role = @role WHERE id = @id',
+      [
+        { name: 'role', type: sql.TinyInt, value: parseInt(role, 10) },
+        { name: 'id', type: sql.Int, value: id }
+      ]);
+    success(res, null, '角色已更新');
+  } catch (error) { next(error); }
+});
+
+// 启用 / 禁用管理员
+app.put('/api/admin/admins/:id/status', adminAuth, roleGuard(1), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { status } = req.body;
+    if (![0, 1].includes(parseInt(status, 10))) return fail(res, '状态取值无效', 400);
+    if (id === req.admin.admin_id && status === 0) return fail(res, '不能禁用当前登录账号', 400);
+    await dbQuery('UPDATE [admin] SET status = @status WHERE id = @id',
+      [
+        { name: 'status', type: sql.TinyInt, value: parseInt(status, 10) },
+        { name: 'id', type: sql.Int, value: id }
+      ]);
+    success(res, null, status === 1 ? '已启用' : '已禁用');
+  } catch (error) { next(error); }
+});
+
+// 重置管理员密码
+app.put('/api/admin/admins/:id/password', adminAuth, roleGuard(1), async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { password } = req.body;
+    if (!password) return fail(res, '新密码不能为空', 400);
+    await dbQuery('UPDATE [admin] SET password_hash = @password_hash WHERE id = @id',
+      [
+        { name: 'password_hash', type: sql.NVarChar, value: hashPassword(password) },
+        { name: 'id', type: sql.Int, value: id }
+      ]);
+    success(res, null, '密码已重置');
+  } catch (error) { next(error); }
 });
 
 app.use((err, req, res, next) => {

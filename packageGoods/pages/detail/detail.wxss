@@ -9,6 +9,34 @@ page {
   background-color: #e0e0e0;
 }
 
+.gallery {
+  width: 100%;
+  height: 750rpx;
+  background-color: #e0e0e0;
+}
+
+.gallery-img {
+  width: 100%;
+  height: 750rpx;
+}
+
+.notice-box {
+  background-color: #ffffff;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.notice-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.notice-line {
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.8;
+}
+
 .info-box, .spec-box, .review-box {
   background-color: #ffffff;
   padding: 30rpx;
