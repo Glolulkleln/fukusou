@@ -815,7 +815,9 @@
               ElementPlus.ElMessage.error('保存失败: ' + (res && res.message || '未知错误'));
             }
           })
-          .catch(() => {});
+          .catch(err => {
+            ElementPlus.ElMessage.error('保存失败: ' + (err && err.message ? err.message : '网络错误，请检查服务是否运行'));
+          });
         };
 
         const getDashboardStats = () => {

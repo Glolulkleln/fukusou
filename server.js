@@ -2213,7 +2213,8 @@ app.post('/api/admin/admins', adminAuth, roleGuard(1), async (req, res, next) =>
         { name: 'username', type: sql.NVarChar, value: username },
         { name: 'password_hash', type: sql.NVarChar, value: hashPassword(password) },
         { name: 'role', type: sql.TinyInt, value: parseInt(role, 10) },
-        { name: 'phone', type: sql.NVarChar, value: phone || null }
+        { name: 'phone', type: sql.NVarChar, value: phone || null },
+        { name: 'status', type: sql.TinyInt, value: 1 }
       ]
     );
     success(res, null, '管理员创建成功');
