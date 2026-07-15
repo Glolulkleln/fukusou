@@ -1980,7 +1980,7 @@ app.post('/api/admin/deposit/deduct', adminAuth, roleGuard(1), async (req, res, 
       .input('order_no', sql.NVarChar, order_no)
       .input('user_id', sql.Int, order.user_id)
       .input('amount', sql.Decimal(10, 2), deduct)
-      .input('remark', sql.NVarChar, remark || N'损坏赔偿扣款')
+      .input('remark', sql.NVarChar, remark || '损坏赔偿扣款')
       .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 3, 1, @remark)');
 
     // 剩余押金生成待审核退款（type=2，status=0 待管理员审核）
@@ -1990,7 +1990,7 @@ app.post('/api/admin/deposit/deduct', adminAuth, roleGuard(1), async (req, res, 
         .input('order_no', sql.NVarChar, order_no)
         .input('user_id', sql.Int, order.user_id)
         .input('amount', sql.Decimal(10, 2), remain)
-        .input('remark', sql.NVarChar, N'损坏扣款后剩余退还（待审核）')
+        .input('remark', sql.NVarChar, '损坏扣款后剩余退还（待审核）')
         .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 2, 0, @remark)');
     }
     await transaction.commit();
