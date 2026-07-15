@@ -482,13 +482,16 @@
         <el-form-item label="基础安全押金">
           <el-input-number v-model="form.deposit_amount" :min="0"></el-input-number>
         </el-form-item>
-        <el-form-item label="可选规格尺寸">
-          <el-checkbox-group v-model="form.specs">
-            <el-checkbox label="S码" value="S码"></el-checkbox>
-            <el-checkbox label="M码" value="M码"></el-checkbox>
-            <el-checkbox label="L码" value="L码"></el-checkbox>
-            <el-checkbox label="XL码" value="XL码"></el-checkbox>
-          </el-checkbox-group>
+        <el-form-item label="尺码规格">
+          <div style="width: 100%;">
+            <div v-for="(sp, idx) in form.specs" :key="idx" style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+              <el-input v-model="sp.size" placeholder="尺码如 S码" style="width: 140px;"></el-input>
+              <el-input-number v-model="sp.price" :min="0" :precision="2" placeholder="日租金" style="width: 130px;"></el-input-number>
+              <el-input-number v-model="sp.stock" :min="0" :step="1" placeholder="库存" style="width: 120px;"></el-input-number>
+              <el-button type="danger" circle @click="removeSpec(idx)">×</el-button>
+            </div>
+            <el-button @click="addSpec">+ 添加尺码</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="立即发布上架">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0"></el-switch>
@@ -1123,6 +1126,15 @@
           form.value.images.splice(idx, 1);
         };
 
+        const addSpec = () => {
+          if (!Array.isArray(form.value.specs)) form.value.specs = [];
+          form.value.specs.push({ size: '', price: form.value.rent_price || 0, stock: 0 });
+        };
+
+        const removeSpec = (idx) => {
+          form.value.specs.splice(idx, 1);
+        };
+
         const openAddDialog = () => {
           form.value = { id: null, name: '', category_id: null, main_image: '', images: [], rent_price: 0, deposit_amount: 0, specs: [], status: 1 };
           dialogVisible.value = true;
@@ -1139,6 +1151,10 @@
             parsedSpecs = JSON.parse(row.specs || '[]');
           } catch(e) {
             parsedSpecs = [];
+          }
+          // 兼容旧版纯字符串规格，规范为 {size,price,stock} 对象
+          if (parsedSpecs.length && typeof parsedSpecs[0] === 'string') {
+            parsedSpecs = parsedSpecs.map(s => ({ size: s, price: row.rent_price || 0, stock: row.stock || 0 }));
           }
           let parsedImages = [];
           try {
@@ -1276,6 +1292,7 @@
           userList, categoryList, categoryDialogVisible, categoryForm,
           handleLogin, handleLogout, handleMenuSelect, getClothingList, openAddDialog, openEditDialog, openAddBannerDialog, parseImages, deleteReview, deleteBanner,
           submitForm, submitBannerForm, deleteClothing, updateOrderStatus, shipOrder, getStatusText, getStatusTag, handleUploadSuccess, handleBannerUploadSuccess,
+          addSpec, removeSpec,
           getOrderList, resetOrderFilter, handleOrderPageChange,
           getUserList, toggleUserStatus, getCategoryList, openAddCategoryDialog, openEditCategoryDialog, deleteCategory, submitCategoryForm,
           depositStats, depositFlows, depositTotal, depositFilter, deductDialogVisible, deductForm,

@@ -685,31 +685,62 @@ app.post('/api/orders', sensitiveLimiter, userAuth, async (req, res, next) => {
       const clothingRequest = new sql.Request(transaction);
       const clothingResult = await clothingRequest
         .input('clothing_id', sql.Int, item.clothing_id)
-        .query('SELECT stock, name, rent_price, deposit_amount FROM [clothing] WHERE id = @clothing_id');
+        .query('SELECT stock, name, rent_price, deposit_amount, specs FROM [clothing] WHERE id = @clothing_id');
 
       if (clothingResult.recordset.length === 0) {
         await transaction.rollback();
         return fail(res, `服装不存在`, 400);
       }
 
-      const currentStock = clothingResult.recordset[0].stock;
-      const clothingName = clothingResult.recordset[0].name;
-      const dbRentPrice = parseFloat(clothingResult.recordset[0].rent_price);
-      const dbDepositAmount = parseFloat(clothingResult.recordset[0].deposit_amount);
+      const row = clothingResult.recordset[0];
+      const clothingName = row.name;
+      const dbDepositAmount = parseFloat(row.deposit_amount);
+      const clothingBaseStock = parseInt(row.stock, 10) || 0;
       const rentDays = item.rent_days > 0 ? parseInt(item.rent_days, 10) : 1;
-      const rentAmount = dbRentPrice * rentDays;
+
+      // 解析尺码规格：兼容旧版纯字符串数组与新版 {size,price,stock} 对象数组
+      let specList = [];
+      try { specList = JSON.parse(row.specs || '[]'); } catch (e) { specList = []; }
+      if (specList.length && typeof specList[0] === 'string') {
+        specList = specList.map(s => ({ size: s, price: parseFloat(row.rent_price) || 0, stock: clothingBaseStock }));
+      }
+
+      // 按尺码定价 + 取尺码库存
+      let unitPrice = parseFloat(row.rent_price) || 0;
+      let sizeStock = clothingBaseStock;
+      const matched = specList.find(s => s.size === item.spec);
+      if (matched) {
+        if (matched.price !== undefined && matched.price !== null && matched.price !== '') {
+          unitPrice = parseFloat(matched.price) || unitPrice;
+        }
+        if (matched.stock !== undefined && matched.stock !== null) {
+          sizeStock = parseInt(matched.stock, 10) || 0;
+        }
+      }
+      const rentAmount = unitPrice * rentDays;
       const totalAmount = rentAmount + dbDepositAmount;
       totalRentAmount += rentAmount;
 
-      if (currentStock <= 0) {
+      if (sizeStock <= 0) {
         await transaction.rollback();
-        return fail(res, `服装 [${clothingName}] 库存不足`, 400);
+        return fail(res, `服装 [${clothingName}] 尺码 [${item.spec || '默认'}] 库存不足`, 400);
       }
 
-      const deductRequest = new sql.Request(transaction);
-      await deductRequest
-        .input('clothing_id', sql.Int, item.clothing_id)
-        .query('UPDATE [clothing] SET stock = stock - 1 WHERE id = @clothing_id');
+      // 扣减库存：优先按尺码库存（写回 specs JSON），并同步总库存
+      if (matched) {
+        matched.stock = (parseInt(matched.stock, 10) || 0) - 1;
+        const newSpecsJson = JSON.stringify(specList);
+        const totalStock = specList.reduce((sum, s) => sum + (parseInt(s.stock, 10) || 0), 0);
+        await new sql.Request(transaction)
+          .input('clothing_id', sql.Int, item.clothing_id)
+          .input('specs', sql.NVarChar, newSpecsJson)
+          .input('totalStock', sql.Int, totalStock)
+          .query('UPDATE [clothing] SET stock = @totalStock, specs = @specs WHERE id = @clothing_id');
+      } else {
+        await new sql.Request(transaction)
+          .input('clothing_id', sql.Int, item.clothing_id)
+          .query('UPDATE [clothing] SET stock = stock - 1 WHERE id = @clothing_id');
+      }
 
       const orderNo = 'ORD' + new Date().getTime() + Math.floor(Math.random() * 1000);
       if (!firstOrderNo) firstOrderNo = orderNo;

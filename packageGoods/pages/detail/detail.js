@@ -5,7 +5,9 @@ Page({
     clothing: null,
     galleryImages: [],
     specs: [],
+    specList: [],
     selectedSpec: null,
+    currentPrice: 0,
     reviews: [],
     isFavorite: false,
     rentDays: 3,
@@ -29,11 +31,26 @@ Page({
       if (clothing.main_image && clothing.main_image.startsWith('cloud://')) {
         clothing.main_image = await getAccessibleImageUrl(clothing.main_image);
       }
-      let parsedSpecs = [];
+      let specList = [];
       try {
-        parsedSpecs = JSON.parse(clothing.specs || '[]');
+        specList = JSON.parse(clothing.specs || '[]');
       } catch (e) {
         console.error('规格解析失败:', e);
+      }
+      // 兼容旧版纯字符串规格，规范为 {size,price,stock} 对象
+      if (specList.length && typeof specList[0] === 'string') {
+        specList = specList.map(s => ({ size: s, price: clothing.rent_price || 0, stock: clothing.stock || 0 }));
+      }
+      const specSizes = specList.map(s => s.size);
+
+      // 初始选中第一个尺码并取其定价
+      let initialSpec = null;
+      let initialPrice = clothing.rent_price || 0;
+      if (specList.length) {
+        initialSpec = specList[0].size;
+        if (specList[0].price !== undefined && specList[0].price !== '' && specList[0].price !== null) {
+          initialPrice = specList[0].price || initialPrice;
+        }
       }
 
       // 多图展示：主图 + 附加图（去重），统一解析可访问地址
@@ -52,7 +69,10 @@ Page({
 
       this.setData({
         clothing,
-        specs: parsedSpecs,
+        specs: specSizes,
+        specList,
+        selectedSpec: initialSpec,
+        currentPrice: initialPrice,
         galleryImages
       });
       this.saveRecentView(clothing);
@@ -163,8 +183,16 @@ Page({
   },
 
   selectSpec(e) {
+    const spec = e.currentTarget.dataset.spec;
+    const specList = this.data.specList || [];
+    const matched = specList.find(s => s.size === spec);
+    let price = this.data.clothing.rent_price || 0;
+    if (matched && matched.price !== undefined && matched.price !== '' && matched.price !== null) {
+      price = matched.price || price;
+    }
     this.setData({
-      selectedSpec: e.currentTarget.dataset.spec
+      selectedSpec: spec,
+      currentPrice: price
     });
   },
 
