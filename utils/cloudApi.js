@@ -7,6 +7,7 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     getClothingList: { url: '/api/clothing', method: 'GET' },
     getClothingDetail: { url: '/api/clothing', method: 'GET' },
     getUserInfo: { url: '/api/user/info', method: 'GET' },
+    bindPhone: { url: '/api/bind-phone', method: 'POST' },
     getAddresses: { url: '/api/addresses', method: 'GET' },
     getAddressDetail: { url: '/api/addresses', method: 'GET' },
     addAddress: { url: '/api/addresses', method: 'POST' },

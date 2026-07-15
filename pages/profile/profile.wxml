@@ -3,7 +3,10 @@
     <image class="avatar" src="{{userInfo.avatar_url || '/assets/icons/profile.png'}}" mode="aspectFill"></image>
     <view class="info-text" wx:if="{{hasLogin}}">
       <text class="nickname">{{userInfo.nickname}}</text>
-      <text class="phone">{{userInfo.phone || '未绑定手机号'}}</text>
+      <view class="phone-row">
+        <text class="phone">{{userInfo.phone || '未绑定手机号'}}</text>
+        <button wx:if="{{!userInfo.phone}}" class="bind-phone-btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone">绑定手机号</button>
+      </view>
     </view>
     <view class="info-text" wx:else>
       <button class="login-btn" bindtap="handleLogin">微信授权登录</button>

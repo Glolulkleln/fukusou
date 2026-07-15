@@ -123,6 +123,7 @@ async function initPool() {
     await ensureDepositTable();
     await ensureClothingImagesColumn();
     await ensureSiteConfigTable();
+    await ensureUserSessionKeyColumn();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
@@ -196,6 +197,17 @@ async function ensureSiteConfigTable() {
   }
 }
 
+// 自动确保 user.session_key 列存在（用于手机号解密）
+async function ensureUserSessionKeyColumn() {
+  try {
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[user]') AND name = 'session_key')
+      ALTER TABLE [user] ADD [session_key] NVARCHAR(100) NULL;`);
+    console.log('user.session_key column ensured');
+  } catch (error) {
+    console.error('ensureUserSessionKeyColumn error:', error.message);
+  }
+}
+
 function success(res, data = null, message = 'success') {
   res.json({ code: 200, data, message });
 }
@@ -225,7 +237,7 @@ function verifyPassword(password, stored) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// 微信 code2Session：用 login code 换取真实 openid（需配置 WX_APPID / WX_SECRET）
+// 微信 code2Session：用 login code 换取真实 openid 与 session_key（需配置 WX_APPID / WX_SECRET）
 function wxCode2Session(code) {
   return new Promise((resolve) => {
     if (!process.env.WX_APPID || !process.env.WX_SECRET) {
@@ -242,7 +254,7 @@ function wxCode2Session(code) {
             console.error('code2Session error:', json.errcode, json.errmsg);
             return resolve(null);
           }
-          resolve(json.openid);
+          resolve({ openid: json.openid, session_key: json.session_key, unionid: json.unionid });
         } catch (e) {
           resolve(null);
         }
@@ -252,6 +264,25 @@ function wxCode2Session(code) {
       resolve(null);
     });
   });
+}
+
+// 解密微信加密数据（手机号等）：AES-128-CBC，key & iv 为 base64
+function decryptWechatData(encryptedData, iv, sessionKey) {
+  try {
+    const cipherBuf = Buffer.from(encryptedData, 'base64');
+    const keyBuf = Buffer.from(sessionKey, 'base64');
+    const ivBuf = Buffer.from(iv, 'base64');
+    const decipher = crypto.createDecipheriv('aes-128-cbc', keyBuf, ivBuf);
+    decipher.setAutoPadding(true);
+    let decoded = Buffer.concat([decipher.update(cipherBuf), decipher.final()]);
+    // 去掉 PKCS7 填充
+    let pad = decoded[decoded.length - 1];
+    if (pad && pad <= 32) decoded = decoded.slice(0, decoded.length - pad);
+    return JSON.parse(decoded.toString('utf8'));
+  } catch (e) {
+    console.error('decryptWechatData error:', e.message);
+    return null;
+  }
 }
 
 async function dbQuery(queryStr, params = []) {
@@ -478,14 +509,16 @@ app.get('/api/clothing/:id', async (req, res, next) => {
 app.post('/api/login', sensitiveLimiter, async (req, res, next) => {
   try {
     let { openid, code, nickname, avatar_url } = req.body;
+    let sessionKey = null;
     if (!openid && code) {
-      // 已配置微信小程序 AppID/Secret 时，通过 code2Session 换取真实 openid
+      // 已配置微信小程序 AppID/Secret 时，通过 code2Session 换取真实 openid 与 session_key
       if (process.env.WX_APPID && process.env.WX_SECRET) {
-        const realOpenid = await wxCode2Session(code);
-        if (!realOpenid) {
+        const wxResult = await wxCode2Session(code);
+        if (!wxResult || !wxResult.openid) {
           return fail(res, '微信登录失败，请重试', 401);
         }
-        openid = realOpenid;
+        openid = wxResult.openid;
+        sessionKey = wxResult.session_key;
       } else {
         // 开发/演示模式：未配置微信凭证时，暂以 code 作为 openid 兜底
         openid = code;
@@ -502,20 +535,22 @@ app.post('/api/login', sensitiveLimiter, async (req, res, next) => {
 
     if (checkResult.recordset.length === 0) {
       await dbQuery(
-        'INSERT INTO [user] (openid, nickname, avatar_url) VALUES (@openid, @nickname, @avatar_url)',
+        'INSERT INTO [user] (openid, nickname, avatar_url, session_key) VALUES (@openid, @nickname, @avatar_url, @session_key)',
         [
           { name: 'openid', type: sql.NVarChar, value: openid },
           { name: 'nickname', type: sql.NVarChar, value: nickname },
-          { name: 'avatar_url', type: sql.NVarChar, value: avatar_url }
+          { name: 'avatar_url', type: sql.NVarChar, value: avatar_url },
+          { name: 'session_key', type: sql.NVarChar, value: sessionKey || null }
         ]
       );
     } else {
       await dbQuery(
-        'UPDATE [user] SET nickname = @nickname, avatar_url = @avatar_url WHERE openid = @openid',
+        'UPDATE [user] SET nickname = @nickname, avatar_url = @avatar_url, session_key = @session_key WHERE openid = @openid',
         [
           { name: 'openid', type: sql.NVarChar, value: openid },
           { name: 'nickname', type: sql.NVarChar, value: nickname },
-          { name: 'avatar_url', type: sql.NVarChar, value: avatar_url }
+          { name: 'avatar_url', type: sql.NVarChar, value: avatar_url },
+          { name: 'session_key', type: sql.NVarChar, value: sessionKey || null }
         ]
       );
     }
@@ -572,6 +607,43 @@ app.put('/api/user/info', userAuth, async (req, res, next) => {
       [{ name: 'id', type: sql.Int, value: userId }]
     );
     success(res, result.recordset[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 手机号快捷授权：解密微信加密数据并绑定手机号
+app.post('/api/bind-phone', userAuth, async (req, res, next) => {
+  try {
+    const userId = req.user.user_id;
+    const { encryptedData, iv, phone } = req.body;
+
+    // 开发/演示模式（未配置微信凭证）下允许直接传入 phone 进行绑定
+    if (!process.env.WX_APPID || !process.env.WX_SECRET) {
+      if (!phone) return fail(res, '缺少手机号', 400);
+      await dbQuery('UPDATE [user] SET phone = @phone WHERE id = @id',
+        [
+          { name: 'phone', type: sql.NVarChar, value: phone },
+          { name: 'id', type: sql.Int, value: userId }
+        ]);
+      return success(res, { phone }, '手机号已绑定');
+    }
+
+    if (!encryptedData || !iv) return fail(res, '缺少加密参数', 400);
+    const userResult = await dbQuery('SELECT session_key FROM [user] WHERE id = @id',
+      [{ name: 'id', type: sql.Int, value: userId }]);
+    if (userResult.recordset.length === 0) return fail(res, '用户不存在', 404);
+    const sessionKey = userResult.recordset[0].session_key;
+    if (!sessionKey) return fail(res, '登录态已失效，请重新登录后绑定', 400);
+
+    const decrypted = decryptWechatData(encryptedData, iv, sessionKey);
+    if (!decrypted || !decrypted.phoneNumber) return fail(res, '手机号解密失败', 400);
+    await dbQuery('UPDATE [user] SET phone = @phone WHERE id = @id',
+      [
+        { name: 'phone', type: sql.NVarChar, value: decrypted.phoneNumber },
+        { name: 'id', type: sql.Int, value: userId }
+      ]);
+    success(res, { phone: decrypted.phoneNumber }, '手机号已绑定');
   } catch (error) {
     next(error);
   }

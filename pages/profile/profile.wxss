@@ -39,6 +39,26 @@ page {
   color: #999999;
 }
 
+.phone-row {
+  display: flex;
+  align-items: center;
+}
+
+.bind-phone-btn {
+  margin: 0 0 0 20rpx;
+  background-color: #fff0f0;
+  color: #ff4d4f;
+  font-size: 24rpx;
+  line-height: 48rpx;
+  height: 48rpx;
+  padding: 0 24rpx;
+  border-radius: 24rpx;
+}
+
+.bind-phone-btn::after {
+  border: none;
+}
+
 .login-btn {
   background-color: #000000;
   color: #ffffff;

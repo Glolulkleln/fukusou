@@ -41,6 +41,43 @@ Page({
     }
   },
 
+  async onGetPhone(e) {
+    if (e.detail.errMsg !== 'getPhoneNumber:ok') {
+      wx.showToast({ title: '已取消授权', icon: 'none' });
+      return;
+    }
+    try {
+      const res = await callCloudApi('bindPhone', {
+        encryptedData: e.detail.encryptedData,
+        iv: e.detail.iv
+      });
+      wx.showToast({ title: '手机号绑定成功', icon: 'success' });
+      this.getUserInfo();
+    } catch (err) {
+      // 开发/演示模式（未配置微信凭证）下，降级为手动输入手机号绑定
+      if (err && (err.code === 400 || (err.message && err.message.includes('解密')))) {
+        wx.showModal({
+          title: '绑定手机号',
+          editable: true,
+          placeholderText: '请输入手机号',
+          success: async (m) => {
+            if (m.confirm && m.content) {
+              try {
+                await callCloudApi('bindPhone', { phone: m.content.trim() });
+                wx.showToast({ title: '手机号绑定成功', icon: 'success' });
+                this.getUserInfo();
+              } catch (e2) {
+                wx.showToast({ title: (e2 && e2.message) || '绑定失败', icon: 'none' });
+              }
+            }
+          }
+        });
+      } else {
+        wx.showToast({ title: (err && err.message) || '绑定失败', icon: 'none' });
+      }
+    }
+  },
+
   handleLogin() {
     if (this.data.loginLoading) return;
     this.setData({ loginLoading: true });
