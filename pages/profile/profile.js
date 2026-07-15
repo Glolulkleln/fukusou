@@ -171,5 +171,11 @@ Page({
     wx.navigateTo({
       url: '/packageUser/pages/about/about'
     });
+  },
+
+  goToNotifications() {
+    wx.navigateTo({
+      url: '/packageUser/pages/notifications/notifications'
+    });
   }
 });

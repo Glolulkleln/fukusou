@@ -1,0 +1,12 @@
+<view class="noti-container">
+  <view class="empty" wx:if="{{list.length === 0}}">暂无归还提醒</view>
+
+  <view class="noti-item {{item.is_read ? 'read' : ''}}" wx:for="{{list}}" wx:key="id" data-no="{{item.order_no}}" bindtap="goOrder">
+    <view class="noti-dot" wx:if="{{!item.is_read}}"></view>
+    <view class="noti-body">
+      <view class="noti-text">{{item.content}}</view>
+      <view class="noti-time">应还时间：{{item.remind_at_str}}</view>
+    </view>
+    <view wx:if="{{!item.is_read}}" class="noti-read" catchtap="markRead" data-id="{{item.id}}">标记已读</view>
+  </view>
+</view>

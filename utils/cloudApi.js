@@ -8,6 +8,8 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     getClothingDetail: { url: '/api/clothing', method: 'GET' },
     getUserInfo: { url: '/api/user/info', method: 'GET' },
     bindPhone: { url: '/api/bind-phone', method: 'POST' },
+    getNotifications: { url: '/api/notifications', method: 'GET' },
+    markNotificationRead: { url: '/api/notifications', method: 'POST' },
     getAddresses: { url: '/api/addresses', method: 'GET' },
     getAddressDetail: { url: '/api/addresses', method: 'GET' },
     addAddress: { url: '/api/addresses', method: 'POST' },
@@ -51,6 +53,10 @@ const callCloudApi = async (action, params = {}, options = {}) => {
   }
   if (action === 'getLogistics' && (params.orderNo || params.order_no)) {
     url = '/api/orders/' + (params.orderNo || params.order_no) + '/logistics';
+    data = {};
+  }
+  if (action === 'markNotificationRead' && (params.id || params.notificationId)) {
+    url = '/api/notifications/' + (params.id || params.notificationId) + '/read';
     data = {};
   }
   if (action === 'getAddressDetail' && (params.id || params.addressId)) {

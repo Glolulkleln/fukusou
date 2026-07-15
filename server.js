@@ -125,6 +125,7 @@ async function initPool() {
     await ensureSiteConfigTable();
     await ensureUserSessionKeyColumn();
     await ensureOrderLogisticsColumns();
+    await ensureReturnRemindTable();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
@@ -219,6 +220,24 @@ async function ensureOrderLogisticsColumns() {
     console.log('orders logistics columns ensured');
   } catch (error) {
     console.error('ensureOrderLogisticsColumns error:', error.message);
+  }
+}
+
+// 自动确保 return_remind（归还前提醒）表存在
+async function ensureReturnRemindTable() {
+  try {
+    await dbQuery(`IF OBJECT_ID('[return_remind]', 'U') IS NULL
+      CREATE TABLE [return_remind] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [order_no] NVARCHAR(50) NOT NULL,
+        [user_id] INT NOT NULL,
+        [remind_at] DATETIME NOT NULL,
+        [is_read] TINYINT DEFAULT 0,
+        [created_at] DATETIME DEFAULT GETDATE()
+      );`);
+    console.log('return_remind table ensured');
+  } catch (error) {
+    console.error('ensureReturnRemindTable error:', error.message);
   }
 }
 
@@ -2034,6 +2053,35 @@ app.get('/api/orders/:order_no/logistics', userOrAdminAuth, async (req, res, nex
   }
 });
 
+// ==================== 归还提醒通知 ====================
+// 用户消息列表（归还提醒等）
+app.get('/api/notifications', userAuth, async (req, res, next) => {
+  try {
+    const userId = req.user.user_id;
+    const result = await dbQuery(
+      `SELECT r.*, o.clothing_id, c.name as clothing_name
+       FROM [return_remind] r
+       LEFT JOIN [orders] o ON r.order_no = o.order_no
+       LEFT JOIN [clothing] c ON o.clothing_id = c.id
+       WHERE r.user_id = @user_id ORDER BY r.is_read ASC, r.remind_at ASC`,
+      [{ name: 'user_id', type: sql.Int, value: userId }]
+    );
+    success(res, result.recordset);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/notifications/:id/read', userAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await dbQuery('UPDATE [return_remind] SET is_read = 1 WHERE id = @id AND user_id = @user_id',
+      [
+        { name: 'id', type: sql.Int, value: id },
+        { name: 'user_id', type: sql.Int, value: req.user.user_id }
+      ]);
+    success(res);
+  } catch (error) { next(error); }
+});
+
 app.use((req, res) => {
   fail(res, '接口不存在', 404);
 });
@@ -2125,8 +2173,38 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+// 归还前 24 小时自动提醒：扫描「租赁中」且归还时间在未来 24 小时内的订单，生成提醒（每小时执行一次）
+async function checkReturnReminders() {
+  try {
+    // 找出租赁中(status=2) 且 rent_end_time 落在 [当前, 当前+24h] 内、尚未生成提醒的订单
+    const dueResult = await dbQuery(
+      `SELECT o.order_no, o.user_id, o.rent_end_time
+       FROM [orders] o
+       WHERE o.status = 2
+         AND o.rent_end_time BETWEEN GETDATE() AND DATEADD(HOUR, 24, GETDATE())
+         AND NOT EXISTS (SELECT 1 FROM [return_remind] r WHERE r.order_no = o.order_no)`
+    );
+    for (const row of dueResult.recordset) {
+      await dbQuery(
+        'INSERT INTO [return_remind] (order_no, user_id, remind_at) VALUES (@order_no, @user_id, @remind_at)',
+        [
+          { name: 'order_no', type: sql.NVarChar, value: row.order_no },
+          { name: 'user_id', type: sql.Int, value: row.user_id },
+          { name: 'remind_at', type: sql.DateTime, value: row.rent_end_time }
+        ]
+      );
+      console.log('生成归还提醒:', row.order_no);
+    }
+  } catch (error) {
+    console.error('checkReturnReminders error:', error.message);
+  }
+}
+
 async function startServer() {
   await initPool();
+  // 启动定时任务：立即执行一次，之后每小时执行
+  checkReturnReminders();
+  setInterval(checkReturnReminders, 60 * 60 * 1000);
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });

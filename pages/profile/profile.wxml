@@ -31,6 +31,10 @@
       <text>收货地址</text>
       <text class="arrow">></text>
     </view>
+    <view class="menu-item" bindtap="goToNotifications">
+      <text>归还提醒</text>
+      <text class="arrow">></text>
+    </view>
     <view class="menu-item" bindtap="goToHelp">
       <text>帮助中心</text>
       <text class="arrow">></text>

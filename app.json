@@ -26,7 +26,8 @@
         "pages/deposit/deposit",
         "pages/help/help",
         "pages/about/about",
-        "pages/customer-service/customer-service"
+        "pages/customer-service/customer-service",
+        "pages/notifications/notifications"
       ]
     }
   ],
