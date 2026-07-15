@@ -1197,6 +1197,11 @@
           const url = isEdit ? `/api/admin/clothing/${form.value.id}` : '/api/admin/clothing';
           const method = isEdit ? 'PUT' : 'POST';
 
+          // 总库存以各尺码库存之和为准，保证“库存量”随尺码修改而更新
+          if (Array.isArray(form.value.specs) && form.value.specs.length) {
+            form.value.stock = form.value.specs.reduce((sum, s) => sum + (parseInt(s && s.stock, 10) || 0), 0);
+          }
+
           request(url, {
             method: method,
             body: JSON.stringify(form.value)

@@ -1540,9 +1540,19 @@ app.get('/api/admin/clothing', adminAuth, async (req, res, next) => {
   }
 });
 
+// 计算总库存：有尺码规格且含库存字段时以各尺码库存之和为准，否则回退到传入的 stock
+function computeTotalStock(specs, fallbackStock) {
+  if (Array.isArray(specs) && specs.length && typeof specs[0] === 'object' && specs[0] !== null) {
+    return specs.reduce((sum, s) => sum + (parseInt(s && s.stock, 10) || 0), 0);
+  }
+  return parseInt(fallbackStock, 10) || 0;
+}
+
 app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
   try {
     const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images } = req.body;
+    // 总库存以尺码库存之和为准（有尺码时），与下单扣库存口径一致；无尺码时用传入 stock
+    const finalStock = computeTotalStock(specs, stock);
     await insertRow('clothing', 'name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images',
       [
         { name: 'name', type: sql.NVarChar, value: name },
@@ -1552,7 +1562,7 @@ app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
         { name: 'deposit_amount', type: sql.Decimal(10,2), value: deposit_amount },
         { name: 'specs', type: sql.NVarChar, value: JSON.stringify(specs) },
         { name: 'status', type: sql.TinyInt, value: status },
-        { name: 'stock', type: sql.Int, value: stock || 0 },
+        { name: 'stock', type: sql.Int, value: finalStock },
         { name: 'images', type: sql.NVarChar, value: JSON.stringify(images || []) }
       ]
     );
@@ -1566,6 +1576,8 @@ app.put('/api/admin/clothing/:id', adminAuth, async (req, res, next) => {
   try {
     const id = req.params.id;
     const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images } = req.body;
+    // 总库存以尺码库存之和为准（有尺码时），与下单扣库存口径一致；无尺码时用传入 stock
+    const finalStock = computeTotalStock(specs, stock);
     await dbQuery(
       'UPDATE [clothing] SET name = @name, category_id = @category_id, main_image = @main_image, rent_price = @rent_price, deposit_amount = @deposit_amount, specs = @specs, status = @status, stock = @stock, images = @images WHERE id = @id',
       [
@@ -1577,7 +1589,7 @@ app.put('/api/admin/clothing/:id', adminAuth, async (req, res, next) => {
         { name: 'deposit_amount', type: sql.Decimal(10,2), value: deposit_amount },
         { name: 'specs', type: sql.NVarChar, value: JSON.stringify(specs) },
         { name: 'status', type: sql.TinyInt, value: status },
-        { name: 'stock', type: sql.Int, value: stock || 0 },
+        { name: 'stock', type: sql.Int, value: finalStock },
         { name: 'images', type: sql.NVarChar, value: JSON.stringify(images || []) }
       ]
     );
