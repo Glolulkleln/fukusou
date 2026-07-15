@@ -18,7 +18,6 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     getFavorites: { url: '/api/favorites', method: 'GET' },
     addFavorite: { url: '/api/favorites/toggle', method: 'POST' },
     deleteFavorite: { url: '/api/favorites/toggle', method: 'POST' },
-    toggleFavorite: { url: '/api/favorites/toggle', method: 'POST' },
     checkFavorite: { url: '/api/favorites/check', method: 'GET' },
     getOrders: { url: '/api/orders', method: 'GET' },
     getOrderDetail: { url: '/api/orders', method: 'GET' },
@@ -32,6 +31,7 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     cancelOrder: { url: '/api/orders/status', method: 'PUT' },
     confirmReturn: { url: '/api/orders/status', method: 'PUT' },
     updateUserInfo: { url: '/api/user/info', method: 'PUT' },
+    getConfig: { url: '/api/config', method: 'GET' },
   };
 
   const config = API_MAP[action];
@@ -109,7 +109,7 @@ const callCloudApi = async (action, params = {}, options = {}) => {
     url = '/api/favorites/check?clothing_id=' + (params.clothingId || params.clothing_id);
     data = {};
   }
-  if (action === 'toggleFavorite') {
+  if ((action === 'addFavorite' || action === 'deleteFavorite') && (params.clothingId || params.clothing_id)) {
     data = { clothing_id: params.clothingId || params.clothing_id };
   }
   if (action === 'updateUserInfo') {

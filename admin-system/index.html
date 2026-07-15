@@ -303,6 +303,12 @@
               </div>
               <el-table :data="categoryList" style="width: 100%">
                 <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                <el-table-column label="分类图标" width="100">
+                  <template #default="scope">
+                    <img v-if="scope.row.icon" :src="scope.row.icon" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" />
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="name" label="分类名称"></el-table-column>
                 <el-table-column prop="sort_order" label="排序权重" width="120"></el-table-column>
                 <el-table-column label="管理操作" width="180">
@@ -540,6 +546,13 @@
         <el-form-item label="分类名称">
           <el-input v-model="categoryForm.name"></el-input>
         </el-form-item>
+        <el-form-item label="分类图标">
+          <el-upload class="avatar-uploader" :action="uploadApiUrl" :headers="uploadHeaders" :show-file-list="false" :on-success="handleCategoryIconSuccess">
+            <img v-if="categoryForm.icon" :src="categoryForm.icon" class="uploaded-preview" style="width: 60px; height: 60px;" />
+            <el-icon v-else class="avatar-uploader-icon"><picture-icon /></el-icon>
+          </el-upload>
+          <div style="color: #909399; font-size: 12px; margin-top: 4px;">点击上传分类图标（可选，建议 1:1 正方形）</div>
+        </el-form-item>
         <el-form-item label="排序权重">
           <el-input-number v-model="categoryForm.sort_order" :min="0"></el-input-number>
         </el-form-item>
@@ -643,7 +656,7 @@
         // 站点配置（租赁须知）
         const rentalNoticeText = ref('');
         const configSaving = ref(false);
-        const categoryForm = ref({ id: null, name: '', sort_order: 0 });
+        const categoryForm = ref({ id: null, name: '', sort_order: 0, icon: '' });
 
         const dialogVisible = ref(false);
         const bannerDialogVisible = ref(false);
@@ -1114,6 +1127,15 @@
           }
         };
 
+        const handleCategoryIconSuccess = (response) => {
+          if (response && response.code === 200) {
+            categoryForm.value.icon = response.data;
+            ElementPlus.ElMessage.success('分类图标已上传');
+          } else {
+            ElementPlus.ElMessage.error('上传失败: ' + (response && response.message || '未知错误'));
+          }
+        };
+
         const handleFormImageSuccess = (response) => {
           if (response && response.code === 200) {
             if (!Array.isArray(form.value.images)) form.value.images = [];
@@ -1293,7 +1315,7 @@
           activeMenu, stats, clothingList, orderList, orderTotal, orderFilter, bannerList, reviewList, globalCategories, dialogVisible, bannerDialogVisible, form, bannerForm,
           userList, categoryList, categoryDialogVisible, categoryForm,
           handleLogin, handleLogout, handleMenuSelect, getClothingList, openAddDialog, openEditDialog, openAddBannerDialog, parseImages, deleteReview, deleteBanner,
-          submitForm, submitBannerForm, deleteClothing, updateOrderStatus, shipOrder, getStatusText, getStatusTag, handleUploadSuccess, handleBannerUploadSuccess,
+          submitForm, submitBannerForm, deleteClothing, updateOrderStatus, shipOrder, getStatusText, getStatusTag, handleUploadSuccess, handleBannerUploadSuccess, handleCategoryIconSuccess,
           addSpec, removeSpec,
           getOrderList, resetOrderFilter, handleOrderPageChange,
           getUserList, toggleUserStatus, getCategoryList, openAddCategoryDialog, openEditCategoryDialog, deleteCategory, submitCategoryForm,

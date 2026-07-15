@@ -131,6 +131,14 @@ async function ensureAdminTable() {
     // 兼容旧表：补充 role 列
     await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[admin]') AND name = 'role')
       ALTER TABLE [admin] ADD [role] TINYINT DEFAULT 1;`);
+    // 兼容旧表：补充 phone / status / created_at 列（历史建表脚本缺失这些列，
+    // 否则管理员列表查询 SELECT ... created_at FROM [admin] 会报“列名无效”）
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[admin]') AND name = 'phone')
+      ALTER TABLE [admin] ADD [phone] NVARCHAR(50) NULL;`);
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[admin]') AND name = 'status')
+      ALTER TABLE [admin] ADD [status] TINYINT DEFAULT 1;`);
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[admin]') AND name = 'created_at')
+      ALTER TABLE [admin] ADD [created_at] DATETIME DEFAULT GETDATE();`);
     // 历史管理员统一置为超级管理员（兼容未设置角色的旧数据）
     await dbQuery(`UPDATE [admin] SET role = 1 WHERE role IS NULL;`);
     // 若没有任何管理员，创建默认超级管理员 admin / admin123
@@ -163,6 +171,7 @@ async function initPool() {
     await ensureUserSessionKeyColumn();
     await ensureOrderLogisticsColumns();
     await ensureReturnRemindTable();
+    await ensureCategoryIconColumn();
   } catch (error) {
     console.error('Failed to initialize database pool:', error.message);
     process.exit(1);
@@ -278,6 +287,25 @@ async function ensureReturnRemindTable() {
   }
 }
 
+// 自动确保 category 表存在并补齐 icon（分类图标）列，兼容已有数据库
+async function ensureCategoryIconColumn() {
+  try {
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'category' AND xtype = 'U')
+      CREATE TABLE [category] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [name] NVARCHAR(50) NOT NULL,
+        [sort_order] INT DEFAULT 0,
+        [icon] NVARCHAR(500) NULL,
+        [created_at] DATETIME DEFAULT GETDATE()
+      );`);
+    await dbQuery(`IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[category]') AND name = 'icon')
+      ALTER TABLE [category] ADD [icon] NVARCHAR(500) NULL;`);
+    console.log('category icon column ensured');
+  } catch (error) {
+    console.error('ensureCategoryIconColumn error:', error.message);
+  }
+}
+
 function success(res, data = null, message = 'success') {
   res.json({ code: 200, data, message });
 }
@@ -365,6 +393,37 @@ async function dbQuery(queryStr, params = []) {
   });
   const result = await request.query(queryStr);
   return result;
+}
+
+// ============ ID 连续自增：所有可增删数据的 id 在删除后从 1 开始连续递增 ============
+// 计算表中下一个可用 id：优先填补最小的空缺，否则取 MAX(id)+1，
+// 从而保证无论删除中间还是末尾记录，id 序列始终保持 1,2,3... 连续。
+async function getNextAvailableId(tableName) {
+  const result = await dbQuery(
+    `IF NOT EXISTS (SELECT 1 FROM [${tableName}] WHERE id = 1)
+       SELECT 1 AS next_id
+     ELSE
+       SELECT ISNULL(MIN(t1.id + 1), 1) AS next_id
+       FROM [${tableName}] t1
+       WHERE NOT EXISTS (SELECT 1 FROM [${tableName}] t2 WHERE t2.id = t1.id + 1)`,
+    []
+  );
+  return result.recordset[0].next_id;
+}
+
+// 以“最小可用 id”显式插入记录，临时关闭 IDENTITY 自增，
+// 确保删除后新建记录的 id 仍然从 1 开始连续递增（不再出现断号后继续递增）。
+async function insertRow(tableName, columns, params) {
+  const nextId = await getNextAvailableId(tableName);
+  const allParams = [{ name: 'id', type: sql.Int, value: nextId }, ...params];
+  const colList = 'id, ' + columns;
+  const valList = allParams.map(p => '@' + p.name).join(', ');
+  const sqlText =
+    `SET IDENTITY_INSERT [${tableName}] ON; ` +
+    `INSERT INTO [${tableName}] (${colList}) VALUES (${valList}); ` +
+    `SET IDENTITY_INSERT [${tableName}] OFF;`;
+  await dbQuery(sqlText, allParams);
+  return nextId;
 }
 
 function adminAuth(req, res, next) {
@@ -622,8 +681,7 @@ app.post('/api/login', sensitiveLimiter, async (req, res, next) => {
     );
 
     if (checkResult.recordset.length === 0) {
-      await dbQuery(
-        'INSERT INTO [user] (openid, nickname, avatar_url, session_key) VALUES (@openid, @nickname, @avatar_url, @session_key)',
+      await insertRow('user', 'openid, nickname, avatar_url, session_key',
         [
           { name: 'openid', type: sql.NVarChar, value: openid },
           { name: 'nickname', type: sql.NVarChar, value: nickname },
@@ -769,6 +827,10 @@ app.post('/api/orders', sensitiveLimiter, userAuth, async (req, res, next) => {
     const orderNumbers = [];
     let totalRentAmount = 0;
     let firstOrderNo = null;
+    // 多件商品在同一事务内批量插入时，未提交的插入对外不可见，
+    // 因此不能反复查询 MAX(id)。在此先取基准值，循环内自增保证唯一且连续。
+    let orderIdSeq = await getNextAvailableId('orders');
+    let depositIdSeq = await getNextAvailableId('deposit_flow');
     for (let item of items) {
       const clothingRequest = new sql.Request(transaction);
       const clothingResult = await clothingRequest
@@ -833,8 +895,10 @@ app.post('/api/orders', sensitiveLimiter, userAuth, async (req, res, next) => {
       const orderNo = 'ORD' + new Date().getTime() + Math.floor(Math.random() * 1000);
       if (!firstOrderNo) firstOrderNo = orderNo;
 
+      const orderId = orderIdSeq++;
       const orderRequest = new sql.Request(transaction);
       await orderRequest
+        .input('id', sql.Int, orderId)
         .input('order_no', sql.NVarChar, orderNo)
         .input('user_id', sql.Int, userId)
         .input('clothing_id', sql.Int, item.clothing_id)
@@ -844,15 +908,17 @@ app.post('/api/orders', sensitiveLimiter, userAuth, async (req, res, next) => {
         .input('rent_amount', sql.Decimal(10,2), rentAmount)
         .input('deposit_amount', sql.Decimal(10,2), dbDepositAmount)
         .input('total_amount', sql.Decimal(10,2), totalAmount)
-        .query('INSERT INTO [orders] (order_no, user_id, clothing_id, selected_spec, rent_start_time, rent_end_time, rent_amount, deposit_amount, total_amount, status) VALUES (@order_no, @user_id, @clothing_id, @selected_spec, @rent_start_time, @rent_end_time, @rent_amount, @deposit_amount, @total_amount, 0)');
+        .query('SET IDENTITY_INSERT [orders] ON; INSERT INTO [orders] (id, order_no, user_id, clothing_id, selected_spec, rent_start_time, rent_end_time, rent_amount, deposit_amount, total_amount, status) VALUES (@id, @order_no, @user_id, @clothing_id, @selected_spec, @rent_start_time, @rent_end_time, @rent_amount, @deposit_amount, @total_amount, 0); SET IDENTITY_INSERT [orders] OFF;');
 
       // 押金流水使用数据库权威金额，避免客户端篡改
+      const depositId = depositIdSeq++;
       const depositRequest = new sql.Request(transaction);
       await depositRequest
+        .input('id', sql.Int, depositId)
         .input('order_no', sql.NVarChar, orderNo)
         .input('user_id', sql.Int, userId)
         .input('deposit_amount', sql.Decimal(10,2), dbDepositAmount)
-        .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @deposit_amount, 1, 1, N\'支付押金\')');
+        .query('SET IDENTITY_INSERT [deposit_flow] ON; INSERT INTO [deposit_flow] (id, order_no, user_id, amount, flow_type, status, remark) VALUES (@id, @order_no, @user_id, @deposit_amount, 1, 1, N\'支付押金\'); SET IDENTITY_INSERT [deposit_flow] OFF;');
 
       orderNumbers.push(orderNo);
     }
@@ -993,10 +1059,12 @@ app.put('/api/orders/:order_no/status', userAuth, async (req, res, next) => {
     }
       
     if (status === 4) {
+      const depositId = await getNextAvailableId('deposit_flow');
       const depositRequest = new sql.Request(transaction);
       await depositRequest
+        .input('id', sql.Int, depositId)
         .input('order_no', sql.NVarChar, orderNo)
-        .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) SELECT order_no, user_id, deposit_amount, 2, 1, N\'退还押金\' FROM [orders] WHERE order_no = @order_no');
+        .query('SET IDENTITY_INSERT [deposit_flow] ON; INSERT INTO [deposit_flow] (id, order_no, user_id, amount, flow_type, status, remark) SELECT @id, order_no, user_id, deposit_amount, 2, 1, N\'退还押金\' FROM [orders] WHERE order_no = @order_no; SET IDENTITY_INSERT [deposit_flow] OFF;');
     }
 
     if (status === 5 && oldStatus < 4) {
@@ -1005,7 +1073,7 @@ app.put('/api/orders/:order_no/status', userAuth, async (req, res, next) => {
         .input('clothing_id', sql.Int, clothingId)
         .query('UPDATE [clothing] SET stock = stock + 1 WHERE id = @clothing_id');
     }
-      
+
     await transaction.commit();
     success(res);
   } catch (error) {
@@ -1134,8 +1202,7 @@ app.post('/api/reviews', userAuth, async (req, res, next) => {
       return fail(res, '该订单已评价', 400);
     }
 
-    await dbQuery(
-      'INSERT INTO [review] (order_no, user_id, clothing_id, rating, content, images) VALUES (@order_no, @user_id, @clothing_id, @rating, @content, @images)',
+    await insertRow('review', 'order_no, user_id, clothing_id, rating, content, images',
       [
         { name: 'order_no', type: sql.NVarChar, value: order_no },
         { name: 'user_id', type: sql.Int, value: userId },
@@ -1171,11 +1238,10 @@ app.post('/api/orders/:order_no/remind', userAuth, async (req, res, next) => {
       return fail(res, '当前订单状态无需提醒发货', 400);
     }
 
-    await dbQuery(
-      'INSERT INTO [order_remind] (order_no, user_id) VALUES (@orderNo, @userId)',
+    await insertRow('order_remind', 'order_no, user_id',
       [
-        { name: 'orderNo', type: sql.NVarChar, value: orderNo },
-        { name: 'userId', type: sql.Int, value: userId }
+        { name: 'order_no', type: sql.NVarChar, value: orderNo },
+        { name: 'user_id', type: sql.Int, value: userId }
       ]
     );
     success(res, null, '已提醒商家发货');
@@ -1245,8 +1311,7 @@ app.post('/api/favorites/toggle', userAuth, async (req, res, next) => {
       );
       success(res, false, '取消收藏成功');
     } else {
-      await dbQuery(
-        'INSERT INTO [favorite] (user_id, clothing_id) VALUES (@user_id, @clothing_id)',
+      await insertRow('favorite', 'user_id, clothing_id',
         [
           { name: 'user_id', type: sql.Int, value: userId },
           { name: 'clothing_id', type: sql.Int, value: clothing_id }
@@ -1315,8 +1380,7 @@ app.post('/api/addresses', userAuth, async (req, res, next) => {
         [{ name: 'user_id', type: sql.Int, value: userId }]
       );
     }
-    await dbQuery(
-      'INSERT INTO [address] (user_id, consignee, phone, detailed_address, is_default) VALUES (@user_id, @consignee, @phone, @detailed_address, @is_default)',
+    await insertRow('address', 'user_id, consignee, phone, detailed_address, is_default',
       [
         { name: 'user_id', type: sql.Int, value: userId },
         { name: 'consignee', type: sql.NVarChar, value: consignee },
@@ -1479,8 +1543,7 @@ app.get('/api/admin/clothing', adminAuth, async (req, res, next) => {
 app.post('/api/admin/clothing', adminAuth, async (req, res, next) => {
   try {
     const { name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images } = req.body;
-    await dbQuery(
-      'INSERT INTO [clothing] (name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images) VALUES (@name, @category_id, @main_image, @rent_price, @deposit_amount, @specs, @status, @stock, @images)',
+    await insertRow('clothing', 'name, category_id, main_image, rent_price, deposit_amount, specs, status, stock, images',
       [
         { name: 'name', type: sql.NVarChar, value: name },
         { name: 'category_id', type: sql.Int, value: category_id },
@@ -1558,15 +1621,15 @@ app.get('/api/admin/categories', adminAuth, async (req, res, next) => {
 
 app.post('/api/admin/categories', adminAuth, async (req, res, next) => {
   try {
-    const { name, sort_order } = req.body;
+    const { name, sort_order, icon } = req.body;
     if (!name) {
       return fail(res, '分类名称不能为空', 400);
     }
-    await dbQuery(
-      'INSERT INTO [category] (name, sort_order) VALUES (@name, @sort_order)',
+    await insertRow('category', 'name, sort_order, icon',
       [
         { name: 'name', type: sql.NVarChar, value: name },
-        { name: 'sort_order', type: sql.Int, value: sort_order || 0 }
+        { name: 'sort_order', type: sql.Int, value: sort_order || 0 },
+        { name: 'icon', type: sql.NVarChar, value: icon || null }
       ]
     );
     success(res);
@@ -1578,16 +1641,17 @@ app.post('/api/admin/categories', adminAuth, async (req, res, next) => {
 app.put('/api/admin/categories/:id', adminAuth, async (req, res, next) => {
   try {
     const id = req.params.id;
-    const { name, sort_order } = req.body;
+    const { name, sort_order, icon } = req.body;
     if (!name) {
       return fail(res, '分类名称不能为空', 400);
     }
     await dbQuery(
-      'UPDATE [category] SET name = @name, sort_order = @sort_order WHERE id = @id',
+      'UPDATE [category] SET name = @name, sort_order = @sort_order, icon = @icon WHERE id = @id',
       [
         { name: 'id', type: sql.Int, value: id },
         { name: 'name', type: sql.NVarChar, value: name },
-        { name: 'sort_order', type: sql.Int, value: sort_order || 0 }
+        { name: 'sort_order', type: sql.Int, value: sort_order || 0 },
+        { name: 'icon', type: sql.NVarChar, value: icon === undefined ? null : icon }
       ]
     );
     success(res);
@@ -1813,10 +1877,12 @@ app.put('/api/admin/orders/:order_no/status', adminAuth, async (req, res, next) 
       .query('UPDATE [orders] SET status = @status WHERE order_no = @order_no');
 
     if (status === 4) {
+      const depositId = await getNextAvailableId('deposit_flow');
       const depositRequest = new sql.Request(transaction);
       await depositRequest
+        .input('id', sql.Int, depositId)
         .input('order_no', sql.NVarChar, orderNo)
-        .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) SELECT order_no, user_id, deposit_amount, 2, 1, N\'退还押金\' FROM [orders] WHERE order_no = @order_no');
+        .query('SET IDENTITY_INSERT [deposit_flow] ON; INSERT INTO [deposit_flow] (id, order_no, user_id, amount, flow_type, status, remark) SELECT @id, order_no, user_id, deposit_amount, 2, 1, N\'退还押金\' FROM [orders] WHERE order_no = @order_no; SET IDENTITY_INSERT [deposit_flow] OFF;');
     }
 
     if (status === 5 && oldStatus < 4) {
@@ -1872,8 +1938,7 @@ app.get('/api/admin/banners', adminAuth, async (req, res, next) => {
 app.post('/api/admin/banners', adminAuth, async (req, res, next) => {
   try {
     const { title, image_url, target_link, sort_order, status } = req.body;
-    await dbQuery(
-      'INSERT INTO [banner] (title, image_url, target_link, sort_order, status) VALUES (@title, @image_url, @target_link, @sort_order, @status)',
+    await insertRow('banner', 'title, image_url, target_link, sort_order, status',
       [
         { name: 'title', type: sql.NVarChar, value: title },
         { name: 'image_url', type: sql.NVarChar, value: image_url },
@@ -2013,22 +2078,26 @@ app.post('/api/admin/deposit/deduct', adminAuth, roleGuard(1), async (req, res, 
     if (deduct > parseFloat(order.deposit_amount)) { await transaction.rollback(); return fail(res, '扣款金额不能超过押金', 400); }
 
     // 扣除记录（type=3，立即生效）
+    const deductId = await getNextAvailableId('deposit_flow');
     await new sql.Request(transaction)
+      .input('id', sql.Int, deductId)
       .input('order_no', sql.NVarChar, order_no)
       .input('user_id', sql.Int, order.user_id)
       .input('amount', sql.Decimal(10, 2), deduct)
       .input('remark', sql.NVarChar, remark || '损坏赔偿扣款')
-      .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 3, 1, @remark)');
+      .query('SET IDENTITY_INSERT [deposit_flow] ON; INSERT INTO [deposit_flow] (id, order_no, user_id, amount, flow_type, status, remark) VALUES (@id, @order_no, @user_id, @amount, 3, 1, @remark); SET IDENTITY_INSERT [deposit_flow] OFF;');
 
     // 剩余押金生成待审核退款（type=2，status=0 待管理员审核）
     const remain = parseFloat(order.deposit_amount) - deduct;
     if (remain > 0) {
+      const remainId = await getNextAvailableId('deposit_flow');
       await new sql.Request(transaction)
+        .input('id', sql.Int, remainId)
         .input('order_no', sql.NVarChar, order_no)
         .input('user_id', sql.Int, order.user_id)
         .input('amount', sql.Decimal(10, 2), remain)
         .input('remark', sql.NVarChar, '损坏扣款后剩余退还（待审核）')
-        .query('INSERT INTO [deposit_flow] (order_no, user_id, amount, flow_type, status, remark) VALUES (@order_no, @user_id, @amount, 2, 0, @remark)');
+        .query('SET IDENTITY_INSERT [deposit_flow] ON; INSERT INTO [deposit_flow] (id, order_no, user_id, amount, flow_type, status, remark) VALUES (@id, @order_no, @user_id, @amount, 2, 0, @remark); SET IDENTITY_INSERT [deposit_flow] OFF;');
     }
     await transaction.commit();
     success(res, null, '已记录扣款，剩余退款待审核');
@@ -2119,10 +2188,6 @@ app.post('/api/notifications/:id/read', userAuth, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.use((req, res) => {
-  fail(res, '接口不存在', 404);
-});
-
 // ==================== 管理员与角色管理（仅超级管理员） ====================
 // 管理员列表
 app.get('/api/admin/admins', adminAuth, roleGuard(1), async (req, res, next) => {
@@ -2143,8 +2208,7 @@ app.post('/api/admin/admins', adminAuth, roleGuard(1), async (req, res, next) =>
     const exist = await dbQuery('SELECT id FROM [admin] WHERE username = @username',
       [{ name: 'username', type: sql.NVarChar, value: username }]);
     if (exist.recordset.length > 0) return fail(res, '该用户名已存在', 400);
-    await dbQuery(
-      'INSERT INTO [admin] (username, password_hash, role, phone, status) VALUES (@username, @password_hash, @role, @phone, 1)',
+    await insertRow('admin', 'username, password_hash, role, phone, status',
       [
         { name: 'username', type: sql.NVarChar, value: username },
         { name: 'password_hash', type: sql.NVarChar, value: hashPassword(password) },
@@ -2203,6 +2267,11 @@ app.put('/api/admin/admins/:id/password', adminAuth, roleGuard(1), async (req, r
   } catch (error) { next(error); }
 });
 
+// 404 兜底：必须在所有业务路由（含管理员路由）之后注册，否则会拦截管理员接口
+app.use((req, res) => {
+  fail(res, '接口不存在', 404);
+});
+
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   fail(res, err.message || '服务器内部错误', 500);
@@ -2222,8 +2291,7 @@ async function checkReturnReminders() {
          AND NOT EXISTS (SELECT 1 FROM [return_remind] r WHERE r.order_no = o.order_no)`
     );
     for (const row of dueResult.recordset) {
-      await dbQuery(
-        'INSERT INTO [return_remind] (order_no, user_id, remind_at) VALUES (@order_no, @user_id, @remind_at)',
+      await insertRow('return_remind', 'order_no, user_id, remind_at',
         [
           { name: 'order_no', type: sql.NVarChar, value: row.order_no },
           { name: 'user_id', type: sql.Int, value: row.user_id },

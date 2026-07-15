@@ -166,17 +166,22 @@ Page({
       wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    const clothingId = this.data.clothing.id;
+    const clothingId = this.data.clothing && this.data.clothing.id;
+    if (!clothingId) {
+      wx.showToast({ title: '商品数据异常，请重试', icon: 'none' });
+      return;
+    }
     try {
-      if (this.data.isFavorite) {
-        await callCloudApi('deleteFavorite', { clothingId });
-        this.setData({ isFavorite: false });
-        wx.showToast({ title: '已取消收藏', icon: 'none' });
-      } else {
-        await callCloudApi('addFavorite', { clothingId });
-        this.setData({ isFavorite: true });
-        wx.showToast({ title: '收藏成功', icon: 'none' });
-      }
+      // 服务端 toggle 接口返回最新收藏状态：true=已收藏，false=已取消
+      const nowFav = await callCloudApi(
+        this.data.isFavorite ? 'deleteFavorite' : 'addFavorite',
+        { clothingId }
+      );
+      this.setData({ isFavorite: !!nowFav });
+      wx.showToast({
+        title: nowFav ? '收藏成功' : '已取消收藏',
+        icon: 'none'
+      });
     } catch (err) {
       wx.showToast({ title: err.message || '操作失败', icon: 'none' });
     }

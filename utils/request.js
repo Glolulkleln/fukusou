@@ -26,7 +26,10 @@ const request = (url, method = 'GET', data = {}) => {
           wx.removeStorageSync('userInfo');
           reject(new Error('未登录或登录已过期'));
         } else {
-          reject(new Error('网络错误'));
+          reject(new Error(
+            (res.data && (res.data.message || res.data.msg)) ||
+            ('请求失败（' + res.statusCode + '）')
+          ));
         }
       },
       fail: (err) => {
